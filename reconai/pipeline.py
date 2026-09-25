@@ -48,11 +48,12 @@ def run_recovery_pipeline(
     progress_callback: Optional[Callable[[str, float], None]] = None
 ) -> Dict[str, Any]:
     """
-    Executes the complete 12-feature forensic recovery pipeline on a raw disk image.
+    Executes the complete forensic recovery & reconstruction pipeline.
+    Supports both raw disk images (.raw, .img, .dd) and directories of user-uploaded evidence files.
     Strictly read-only evidence handling.
     """
     if not os.path.exists(image_path):
-        raise FileNotFoundError(f"Evidence disk image not found: {image_path}")
+        raise FileNotFoundError(f"Evidence target path not found: {image_path}")
 
     def update_progress(msg: str, progress: float):
         if progress_callback:
@@ -61,9 +62,37 @@ def run_recovery_pipeline(
     # Initialize Local Database
     init_db()
 
+    is_directory = os.path.isdir(image_path)
+
     # --- 1. INGESTION, PRIMARY SEAL & AUDIT LOG ---
     update_progress("Step 1/10: Ingesting evidence & initializing hash-chained audit log...", 0.08)
-    hash_meta = compute_evidence_hash(image_path)
+    
+    if is_directory:
+        # Calculate combined hash for directory intake
+        dir_files = [os.path.join(image_path, f) for f in sorted(os.listdir(image_path)) if not f.startswith('.')]
+        combined_hasher = hashlib.sha256()
+        total_size = 0
+        for fp in dir_files:
+            if os.path.isfile(fp):
+                total_size += os.path.getsize(fp)
+                with open(fp, 'rb') as f:
+                    combined_hasher.update(f.read())
+        
+        dir_sha256 = combined_hasher.hexdigest()
+        hash_meta = {
+            "image_path": image_path,
+            "filename": f"User_Evidence_Folder ({len(dir_files)} files)",
+            "size_bytes": total_size,
+            "size_mb": round(total_size / (1024 * 1024), 2),
+            "sha256": dir_sha256 if dir_sha256 != hashlib.sha256().hexdigest() else hashlib.sha256(b"empty_folder").hexdigest(),
+            "sha1": "N/A (Folder)",
+            "md5": "N/A (Folder)",
+            "crc32": "N/A (Folder)",
+            "timestamp_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+        }
+    else:
+        hash_meta = compute_evidence_hash(image_path)
+
     if not case_id:
         case_id = f"CASE-{hash_meta['sha256'][:8].upper()}"
     evidence_id = f"EV-{hash_meta['sha256'][:6].upper()}"
@@ -99,44 +128,75 @@ def run_recovery_pipeline(
         "python_version": platform.python_version()
     }
 
-    # --- 2. FILESYSTEM UNDELETE ---
-    update_progress("Step 2/10: Parsing directory tables for deleted inodes (0xE5 markers)...", 0.18)
-    fs_items = recover_filesystem(image_path)
-    known_offsets = [item["offset"] for item in fs_items]
-    known_hashes = {item["sha256"]: item for item in fs_items}
-    audit_log.log_action("FILESYSTEM_UNDELETE_SCAN", {
-        "recovered_inodes": len(fs_items),
-        "target_offsets": known_offsets
-    })
-
-    # --- 3. FILESYSTEM-INDEPENDENT SIGNATURE CARVING ---
-    update_progress("Step 3/10: Scanning raw unallocated bitstream for file signatures & orphan fragments...", 0.30)
-    carved_items, orphan_fragments = carve_raw_image(image_path, known_offsets)
-
-    # De-duplicate carved items against filesystem items
+    fs_items = []
     unique_carved = []
-    for c in carved_items:
-        c_hash = c["sha256"]
-        if c_hash in known_hashes:
-            known_hashes[c_hash]["dual_verified"] = True
-        else:
-            unique_carved.append(c)
+    orphan_fragments = []
+    reassembled_files = []
+    leftover_orphans = []
 
-    audit_log.log_action("SIGNATURE_CARVE_SCAN", {
-        "total_carved": len(carved_items),
-        "unique_unallocated": len(unique_carved),
-        "orphan_fragments_captured": len(orphan_fragments)
-    })
+    if is_directory:
+        # Direct User Evidence Directory Processing
+        update_progress("Step 2/10: Processing uploaded evidence files & calculating SHA-256 seals...", 0.20)
+        dir_files = [os.path.join(image_path, f) for f in sorted(os.listdir(image_path)) if not f.startswith('.')]
+        for idx, fp in enumerate(dir_files):
+            if os.path.isfile(fp):
+                fn = os.path.basename(fp)
+                with open(fp, 'rb') as f:
+                    f_data = f.read()
+                f_hash = hashlib.sha256(f_data).hexdigest()
+                ext = os.path.splitext(fn)[1].lower()
+                
+                fs_items.append({
+                    "item_id": f"upload_{idx+1:04d}",
+                    "filename": fn,
+                    "extension": ext,
+                    "source": "filesystem_undelete",
+                    "offset": 0,
+                    "size_bytes": len(f_data),
+                    "sha256": f_hash,
+                    "data": f_data,
+                    "is_deleted": False,
+                    "is_fragmented": False
+                })
+    else:
+        # --- 2. FILESYSTEM UNDELETE ---
+        update_progress("Step 2/10: Parsing directory tables for deleted inodes (0xE5 markers)...", 0.18)
+        fs_items = recover_filesystem(image_path)
+        known_offsets = [item["offset"] for item in fs_items]
+        known_hashes = {item["sha256"]: item for item in fs_items}
+        audit_log.log_action("FILESYSTEM_UNDELETE_SCAN", {
+            "recovered_inodes": len(fs_items),
+            "target_offsets": known_offsets
+        })
 
-    # --- 4. AI FRAGMENT RECONSTRUCTION ENGINE ---
-    update_progress("Step 4/10: AI Fragment Engine: evaluating byte histogram cosine similarity & graph reassembly...", 0.42)
-    reassembled_files, leftover_orphans = reassemble_fragments(orphan_fragments)
+        # --- 3. FILESYSTEM-INDEPENDENT SIGNATURE CARVING ---
+        update_progress("Step 3/10: Scanning raw unallocated bitstream for file signatures & orphan fragments...", 0.30)
+        carved_items, orphan_fragments = carve_raw_image(image_path, known_offsets)
 
-    audit_log.log_action("AI_FRAGMENT_REASSEMBLY", {
-        "fragments_processed": len(orphan_fragments),
-        "chains_reassembled": len(reassembled_files),
-        "leftover_orphans": len(leftover_orphans)
-    })
+        # De-duplicate carved items against filesystem items
+        for c in carved_items:
+            c_hash = c["sha256"]
+            if c_hash in known_hashes:
+                known_hashes[c_hash]["dual_verified"] = True
+            else:
+                unique_carved.append(c)
+
+        audit_log.log_action("SIGNATURE_CARVE_SCAN", {
+            "total_carved": len(carved_items),
+            "unique_unallocated": len(unique_carved),
+            "orphan_fragments_captured": len(orphan_fragments)
+        })
+
+        # --- 4. AI FRAGMENT RECONSTRUCTION ENGINE ---
+        update_progress("Step 4/10: AI Fragment Engine: evaluating byte histogram cosine similarity & graph reassembly...", 0.42)
+        reassembled_files, leftover_orphans = reassemble_fragments(orphan_fragments)
+
+        audit_log.log_action("AI_FRAGMENT_REASSEMBLY", {
+            "fragments_processed": len(orphan_fragments),
+            "chains_reassembled": len(reassembled_files),
+            "leftover_orphans": len(leftover_orphans)
+        })
+
 
     # Combine all recovered candidate artifacts
     all_artifacts = []

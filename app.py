@@ -211,30 +211,63 @@ with st.sidebar:
     st.markdown('<div style="font-size: 16px; font-weight: 700; color: #0F172A; margin-top: 6px; margin-bottom: 8px;">📥 Evidence Ingestion</div>', unsafe_allow_html=True)
     ingest_mode = st.radio(
         "Select Ingest Source:",
-        ["⚡ Confiscated Suspect USB Drive (64MB Case Demo)", "📁 Upload Seized Disk Image"],
+        [
+            "📁 Upload Seized Disk Image (.raw, .img, .dd)",
+            "📦 Upload Evidence Files (Drag & Drop)",
+            "⚡ Generate Synthetic Test Disk (Optional Demo)"
+        ],
         index=0,
-        help="⚡ Case Selection: Loads the pre-configured 64MB evidence disk containing deleted credentials, fraud reports, and fragmented photos. Switch to 'Upload' to ingest an external disk image."
+        help="📁 User-Driven Ingestion: Upload an external forensic disk image or drag-and-drop seized evidence files directly."
     )
 
     target_path = None
 
-    if "Confiscated" in ingest_mode or "Demo" in ingest_mode:
-        ensure_demo_data()
-        target_path = DEMO_RAW_PATH
-        st.success("✅ Seized case disk loaded: `demo_evidence.raw` (64 MB)")
-    else:
-        uploaded_file = st.file_uploader(
-            "Upload Raw Disk Image (.raw, .dd, .img)",
+    if "Upload Seized Disk Image" in ingest_mode:
+        uploaded_image = st.file_uploader(
+            "Upload Disk Image (.raw, .dd, .img)",
             type=["raw", "dd", "img"],
-            help="🛡️ Forensic Ingestion: Accepts raw bit-stream disk images (.raw, .dd, .img). Mounted strictly in read-only mode to prevent forensic contamination."
+            help="🛡️ Forensic Disk Ingestion: Accepts raw bit-stream disk images. Opened strictly in read-only O_RDONLY mode."
         )
-        if uploaded_file is not None:
+        if uploaded_image is not None:
             upload_dir = os.path.join(BASE_DIR, "data", "uploads")
             os.makedirs(upload_dir, exist_ok=True)
-            target_path = os.path.join(upload_dir, uploaded_file.name)
+            target_path = os.path.join(upload_dir, uploaded_image.name)
             with open(target_path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            st.success(f"✅ Ingested: {uploaded_file.name}")
+                f.write(uploaded_image.getbuffer())
+            st.success(f"✅ Ingested Disk Image: `{uploaded_image.name}`")
+
+    elif "Upload Evidence Files" in ingest_mode:
+        uploaded_files = st.file_uploader(
+            "Upload Evidence Files (Multiple)",
+            accept_multiple_files=True,
+            help="📦 Upload evidence artifacts (PDF, JPEG, PNG, TXT, LOG, ENV, ZIP, DB) for classification and analysis."
+        )
+        if uploaded_files:
+            upload_case_dir = os.path.join(BASE_DIR, "data", "uploads", "case_files")
+            os.makedirs(upload_case_dir, exist_ok=True)
+            # Clear previous uploaded case files
+            for old_f in os.listdir(upload_case_dir):
+                old_fp = os.path.join(upload_case_dir, old_f)
+                if os.path.isfile(old_fp):
+                    os.remove(old_fp)
+            
+            for uf in uploaded_files:
+                save_fp = os.path.join(upload_case_dir, uf.name)
+                with open(save_fp, "wb") as f:
+                    f.write(uf.getbuffer())
+            target_path = upload_case_dir
+            st.success(f"✅ Ingested {len(uploaded_files)} user evidence file(s)")
+
+    else:
+        # Generate Synthetic Test Disk on Demand
+        if st.button("⚡ Generate Fresh Test Image (64MB)", use_container_width=True):
+            from scripts.make_test_image import generate_evidence_disk
+            generate_evidence_disk(DEMO_RAW_PATH, DEMO_GT_PATH)
+            st.success("✅ Generated fresh synthetic test disk: `demo_evidence.raw`")
+        if os.path.exists(DEMO_RAW_PATH):
+            target_path = DEMO_RAW_PATH
+            st.info("⚡ Test disk ready: `demo_evidence.raw`")
+
 
     if target_path and os.path.exists(target_path):
         # Cryptographic Evidence Verification & Chain of Custody
@@ -441,6 +474,20 @@ with st.sidebar:
             st.rerun()
 
     st.markdown("---")
+    st.markdown('<div style="font-size: 16px; font-weight: 700; color: #0F172A; margin-top: 10px; margin-bottom: 8px;">🧹 Case Database Control</div>', unsafe_allow_html=True)
+    if st.button("🧹 Clear All Database History & Reset", use_container_width=True, help="Purges SQLite case databases, uploaded cache, and resets session to clean slate."):
+        db_p = os.path.join(BASE_DIR, "data", "reconai.db")
+        if os.path.exists(db_p):
+            try:
+                os.remove(db_p)
+            except Exception:
+                pass
+        st.session_state.recovery_results = None
+        st.session_state.current_image_path = None
+        st.success("✅ Database & session wiped cleanly!")
+        st.rerun()
+
+    st.markdown("---")
     st.markdown('<div style="font-size: 16px; font-weight: 700; color: #0F172A; margin-top: 10px; margin-bottom: 12px;">🧭 Investigator Quick Guide</div>', unsafe_allow_html=True)
     st.markdown("""
     <div style="font-size: 13px; line-height: 1.6; color: #1E293B;">
@@ -497,25 +544,96 @@ def get_source_badge(source: str) -> str:
 
 # --- MAIN CONTENT AREA ---
 if st.session_state.recovery_results is None:
-    # Landing Page with Non-Technical User Guides
+    # Landing Page with Interactive Upload Dropzone
     st.markdown("## 🛡️ ReconAI Digital Evidence Reconstruction")
-    st.markdown("##### Intelligent Forensics: Dual Recovery • AI Fragment Reassembly • Structural Integrity Assessment")
+    st.markdown("##### Interactive Forensics: Upload Evidence Files or Disk Images for Automated Recovery & Classification")
 
-    st.info("👈 **What should I do?** Click **'🚀 Run Recovery Pipeline'** in the sidebar to start the automated evidence reconstruction!")
+    # Interactive Drag & Drop Evidence Dropzone
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #131B2E 0%, #0F172A 100%); border: 2px dashed #00F2FE; border-radius: 12px; padding: 24px; text-align: center; margin-bottom: 24px;">
+        <div style="font-size: 32px; margin-bottom: 8px;">📥</div>
+        <div style="font-size: 18px; font-weight: 700; color: #F8FAFC; margin-bottom: 4px;">Digital Evidence Upload Center</div>
+        <div style="font-size: 13px; color: #94A3B8; margin-bottom: 16px;">
+            Drag and drop seized evidence files (PDF, JPEG, PNG, TXT, LOG, ENV, ZIP, DB) or raw disk images (.raw, .img, .dd) below to begin analysis.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
+    up_col1, up_col2 = st.columns(2)
+    with up_col1:
+        st.markdown("#### 📦 Option A: Drag & Drop Evidence Files")
+        main_uploaded_files = st.file_uploader(
+            "Upload Seized Evidence Files:",
+            accept_multiple_files=True,
+            key="main_evidence_files_uploader",
+            help="Upload multiple files (documents, photos, credentials, logs, archives) to classify and reconstruct."
+        )
+        if main_uploaded_files:
+            upload_case_dir = os.path.join(BASE_DIR, "data", "uploads", "case_files")
+            os.makedirs(upload_case_dir, exist_ok=True)
+            for old_f in os.listdir(upload_case_dir):
+                old_fp = os.path.join(upload_case_dir, old_f)
+                if os.path.isfile(old_fp):
+                    os.remove(old_fp)
+            for uf in main_uploaded_files:
+                save_fp = os.path.join(upload_case_dir, uf.name)
+                with open(save_fp, "wb") as f:
+                    f.write(uf.getbuffer())
+            
+            st.success(f"✅ Ingested {len(main_uploaded_files)} file(s) into active session!")
+            if st.button("🚀 Analyze & Classify Uploaded Files", type="primary", use_container_width=True):
+                progress_bar = st.progress(0, text="Initializing recovery pipeline...")
+                def on_progress(msg, p):
+                    progress_bar.progress(p, text=msg)
+                with st.spinner("Analyzing uploaded files & generating evidence graph..."):
+                    results = run_recovery_pipeline(upload_case_dir, progress_callback=on_progress)
+                    st.session_state.recovery_results = results
+                    st.session_state.current_image_path = upload_case_dir
+                progress_bar.empty()
+                st.rerun()
+
+    with up_col2:
+        st.markdown("#### 📁 Option B: Upload Raw Disk Image")
+        main_uploaded_disk = st.file_uploader(
+            "Upload Disk Image (.raw, .dd, .img):",
+            type=["raw", "dd", "img"],
+            key="main_disk_image_uploader",
+            help="Upload raw bit-stream disk images for deep sector carving and fragment reassembly."
+        )
+        if main_uploaded_disk:
+            upload_dir = os.path.join(BASE_DIR, "data", "uploads")
+            os.makedirs(upload_dir, exist_ok=True)
+            disk_save_fp = os.path.join(upload_dir, main_uploaded_disk.name)
+            with open(disk_save_fp, "wb") as f:
+                f.write(main_uploaded_disk.getbuffer())
+            
+            st.success(f"✅ Ingested Disk Image: `{main_uploaded_disk.name}`")
+            if st.button("🚀 Run Disk Reconstruction Pipeline", type="primary", use_container_width=True):
+                progress_bar = st.progress(0, text="Initializing recovery pipeline...")
+                def on_progress(msg, p):
+                    progress_bar.progress(p, text=msg)
+                with st.spinner("Carving unallocated sectors & reassembling fragments..."):
+                    results = run_recovery_pipeline(disk_save_fp, progress_callback=on_progress)
+                    st.session_state.recovery_results = results
+                    st.session_state.current_image_path = disk_save_fp
+                progress_bar.empty()
+                st.rerun()
+
+    st.markdown("---")
     # Non-Technical Explainer Card
     st.markdown("""
     <div class="help-card">
         <strong>🛡️ System Primer: Automated Digital Evidence Reconstruction</strong><br>
-        When criminals delete files or damage hard drives, standard software cannot see them. ReconAI acts as an <strong>automated digital detective</strong>:
+        When evidence files or disk images are uploaded, ReconAI acts as an <strong>automated digital forensic detective</strong>:
         <ul style="margin-top: 6px; margin-bottom: 0;">
-            <li><strong>Finds deleted files:</strong> Scans both the drive's file catalog and raw unallocated drive space.</li>
-            <li><strong>Pieces together broken files:</strong> Reassembles photos and documents that were split across separate sectors.</li>
-            <li><strong>Tests if files work:</strong> Actually verifies if recovered pictures and documents can open without crashing.</li>
-            <li><strong>Extracts smoking guns:</strong> Automatically spots cryptocurrency wallet addresses, stolen passwords, and suspect IPs.</li>
+            <li><strong>Seals evidence cryptographically:</strong> Calculates SHA-256 seals to guarantee read-only custody.</li>
+            <li><strong>Classifies evidence automatically:</strong> Categorizes items into 🔑 Credentials, 💰 Financial, 🖼️ Media, and ⚙️ Logs.</li>
+            <li><strong>Tests structural integrity:</strong> Verifies whether pictures, PDFs, and archives open cleanly.</li>
+            <li><strong>Generates interactive visual graphs:</strong> Renders relationship networks of cross-linked entities and artifacts.</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
+
 
     col1, col2, col3 = st.columns(3)
     with col1:
