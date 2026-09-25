@@ -26,13 +26,15 @@ from reconai.ingest.hasher import compute_evidence_hash
 from reconai.pipeline import run_recovery_pipeline
 from reconai.db.models import get_case_items, get_case_metadata, save_case, save_recovered_item
 from reconai.report.report_exporter import generate_json_report, generate_pdf_report
-from reconai.copilot.copilot_engine import query_investigator_copilot
+from reconai.copilot.service import ask_copilot
 
 # In-memory storage cache for active session items
 _ACTIVE_CASE_CACHE: Dict[str, Any] = {}
 
 def _ensure_active_case() -> Dict[str, Any]:
-    """Ensures at least one active case (e.g. demo case) is loaded into cache."""
+    """Ensures at least one active case (e.g. demo case) is loaded into cache.
+    Only used when the caller didn't ask for a specific case_id — never as a
+    substitute for a case_id that was requested but not found."""
     if _ACTIVE_CASE_CACHE:
         first_key = list(_ACTIVE_CASE_CACHE.keys())[0]
         return _ACTIVE_CASE_CACHE[first_key]
@@ -49,7 +51,7 @@ def _ensure_active_case() -> Dict[str, Any]:
     if os.path.exists(demo_raw):
         results = run_recovery_pipeline(
             image_path=demo_raw,
-            examiner_name="Agent V. Vance",
+            examiner_name="Demo Examiner (auto-generated case)",
             extraction_scope="Complete Forensic Triage"
         )
         c_id = results["case"]["case_id"]
@@ -57,6 +59,24 @@ def _ensure_active_case() -> Dict[str, Any]:
         return results
 
     return {}
+
+def _resolve_case(case_id: Optional[str]) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """
+    Resolves a case_id to (resolved_id, case_data).
+    - No case_id given: bootstraps/returns whatever case is active (zero-config demo entry).
+    - A specific case_id given: returns it only if it actually exists — never silently
+      substitutes a different case, so a stale or mistyped case_id fails loudly instead
+      of returning someone else's evidence.
+    """
+    if not case_id:
+        data = _ensure_active_case()
+        resolved_id = data.get("case", {}).get("case_id") if data else None
+        return resolved_id, (data or None)
+
+    if case_id not in _ACTIVE_CASE_CACHE and not _ACTIVE_CASE_CACHE:
+        _ensure_active_case()  # cold start: populate cache, then check again below
+
+    return case_id, _ACTIVE_CASE_CACHE.get(case_id)
 
 def api_list_cases() -> List[Dict[str, Any]]:
     """
@@ -86,13 +106,7 @@ def api_get_case_view(case_id: str) -> Dict[str, Any]:
     GET /api/forensics/cases/:id
     Returns complete sanitized case metadata, recoverability stats, tampering indicators, and timeline.
     """
-    if case_id not in _ACTIVE_CASE_CACHE:
-        _ensure_active_case()
-
-    if case_id not in _ACTIVE_CASE_CACHE and _ACTIVE_CASE_CACHE:
-        case_id = list(_ACTIVE_CASE_CACHE.keys())[0]
-
-    data = _ACTIVE_CASE_CACHE.get(case_id)
+    case_id, data = _resolve_case(case_id)
     if not data:
         return {"status": "ERROR", "message": f"Case '{case_id}' not found."}
 
@@ -120,9 +134,13 @@ def api_get_case_view(case_id: str) -> Dict[str, Any]:
             "sha256": item.get("sha256"),
             "offset": item.get("offset"),
             "is_user_file": item.get("is_user_file", True),
-            "use_case": item.get("use_case", "")
+            "use_case": item.get("use_case", ""),
+            "join_reasons": item.get("join_reasons", []),
+            "fragments_linked": item.get("fragments_linked", []),
+            "is_fragmented": item.get("is_fragmented", False)
         })
 
+    audit = data.get("audit_log", {})
     return {
         "status": "SUCCESS",
         "case_id": case_id,
@@ -130,28 +148,48 @@ def api_get_case_view(case_id: str) -> Dict[str, Any]:
         "hash_meta": data.get("hash_meta", {}),
         "stats": data.get("stats", {}),
         "recoverability_summary": data.get("recoverability_summary", {}),
-        "tampering_summary": data.get("tampering_summary", {}),
+        # The pipeline's key is "tampering" — kept as "tampering_summary" here too since
+        # the frontend already reads that name.
+        "tampering_summary": data.get("tampering", {}),
         "timeline": data.get("timeline", {}),
-        "custody": data.get("custody", {}),
+        "custody": {
+            "read_only_verified": data.get("read_only_verified", False),
+            "acquisition_sha256": data.get("hash_meta", {}).get("sha256"),
+            "post_analysis_sha256": data.get("post_analysis_hash", {}).get("sha256"),
+            "chain_integrity": audit.get("chain_integrity"),
+            "total_audit_events": audit.get("total_audit_events"),
+            "examiner_name": data.get("case", {}).get("examiner_name"),
+        },
+        "iocs": data.get("iocs", {}),
         "narratives": data.get("narratives", {}),
         "benchmark": data.get("benchmark", {}),
         "recovered_items": sanitized_items
     }
+
+ALLOWED_EVIDENCE_EXTENSIONS = {".raw", ".img", ".dd", ".bin", ".mem", ".dmp"}
 
 def api_upload_image(file_bytes: bytes, filename: str, upload_dir: str = "data/uploads") -> Dict[str, Any]:
     """
     POST /api/forensics/upload
     Saves uploaded disk image (.raw, .img, .dd, .bin, .mem, .dmp) to working directory in read-only mode.
     """
+    # Strip any directory components from a client-supplied filename before it touches
+    # the filesystem — otherwise "../../reconai/api.py" would overwrite files outside
+    # upload_dir. Only recognised evidence extensions are accepted.
+    safe_name = os.path.basename((filename or "").strip().replace("\\", "/"))
+    ext = os.path.splitext(safe_name)[1].lower()
+    if not safe_name or ext not in ALLOWED_EVIDENCE_EXTENSIONS:
+        return {"status": "ERROR", "message": f"Upload a disk image with one of these extensions: {', '.join(sorted(ALLOWED_EVIDENCE_EXTENSIONS))}"}
+
     os.makedirs(upload_dir, exist_ok=True)
-    file_path = os.path.join(upload_dir, filename)
+    file_path = os.path.join(upload_dir, safe_name)
     with open(file_path, "wb") as f:
         f.write(file_bytes)
     
     hash_info = compute_evidence_hash(file_path)
     return {
         "status": "SUCCESS",
-        "message": f"Disk image uploaded and sealed successfully: {filename}",
+        "message": f"Disk image uploaded and sealed successfully: {safe_name}",
         "file_path": file_path,
         "hash_metadata": hash_info
     }
@@ -174,13 +212,20 @@ def api_analyze_image(image_path: str) -> Dict[str, Any]:
 def api_recover_image(
     image_path: str,
     case_id: Optional[str] = None,
-    examiner_name: str = "Agent V. Vance",
+    examiner_name: Optional[str] = None,
     scope: str = "Complete Forensic Triage"
 ) -> Dict[str, Any]:
     """
     POST /api/forensics/recover
     Executes end-to-end recovery pipeline (FS undelete, carving, AI reassembly, repair, triage).
+    The examiner name is written into the chain-of-custody record and every exported
+    report, so it must be supplied by the caller rather than defaulting to a fabricated
+    identity — a made-up examiner on a custody record is a real forensic-integrity problem.
     """
+    examiner_name = (examiner_name or "").strip()
+    if not examiner_name:
+        return {"status": "ERROR", "message": "Examiner name is required for chain of custody."}
+
     results = run_recovery_pipeline(
         image_path=image_path,
         case_id=case_id,
@@ -216,12 +261,11 @@ def api_get_files(
     GET /api/forensics/files
     Retrieves list of recovered files with optional filters.
     """
-    if case_id in _ACTIVE_CASE_CACHE:
-        items = _ACTIVE_CASE_CACHE[case_id]["recovered_items"]
-    else:
-        _ensure_active_case()
-        items = _ACTIVE_CASE_CACHE.get(case_id, {}).get("recovered_items", get_case_items(case_id))
-        
+    _, data = _resolve_case(case_id)
+    if not data:
+        return {"status": "ERROR", "message": f"Case '{case_id}' not found.", "count": 0, "files": []}
+    items = data.get("recovered_items", [])
+
     filtered = items
     if category and category.upper() != "ALL":
         filtered = [i for i in filtered if i.get("category") == category]
@@ -251,7 +295,10 @@ def api_get_files(
             "size_bytes": item.get("size_bytes"),
             "sha256": item.get("sha256"),
             "offset": item.get("offset"),
-            "is_user_file": item.get("is_user_file", True)
+            "is_user_file": item.get("is_user_file", True),
+            "join_reasons": item.get("join_reasons", []),
+            "fragments_linked": item.get("fragments_linked", []),
+            "is_fragmented": item.get("is_fragmented", False)
         })
         
     return {
@@ -354,35 +401,24 @@ def api_download_file(case_id: str, item_id: str) -> Tuple[bytes, str, str]:
 
 def api_copilot_ask(case_id: str, prompt: str) -> Dict[str, Any]:
     """
-    POST /api/forensics/copilot
-    Executes grounded evidence query using Copilot engine.
+    POST /api/copilot/ask or POST /api/forensics/copilot
+    Executes evidence-grounded query using AI Provider abstraction and retrieval layer.
     """
-    if case_id not in _ACTIVE_CASE_CACHE:
-        _ensure_active_case()
-    
-    c_data = _ACTIVE_CASE_CACHE.get(case_id) or list(_ACTIVE_CASE_CACHE.values())[0]
-    res = query_investigator_copilot(
-        query=prompt,
-        recovered_items=c_data.get("recovered_items", []),
-        case_meta=c_data.get("case", {}),
-        timeline_events=c_data.get("timeline", {}).get("timeline_events", []),
-        tampering_indicators=c_data.get("tampering_summary", {}).get("indicators", [])
-    )
-    return {
-        "status": "SUCCESS",
-        "query": prompt,
-        "response": res
-    }
+    _, c_data = _resolve_case(case_id)
+    if not c_data:
+        return {"success": False, "answer": f"Case '{case_id}' not found. Run recovery on it first.",
+                "citations": [], "evidence_count": 0, "grounded": False}
+
+    return ask_copilot(question=prompt, case_data=c_data)
 
 def api_get_report(case_id: str, report_format: str = "json") -> Dict[str, Any]:
     """
     GET /api/forensics/report
     Generates downloadable forensic report in JSON or PDF format.
     """
-    if case_id not in _ACTIVE_CASE_CACHE:
-        _ensure_active_case()
-
-    res = _ACTIVE_CASE_CACHE.get(case_id) or list(_ACTIVE_CASE_CACHE.values())[0]
+    _, res = _resolve_case(case_id)
+    if not res:
+        return {"status": "ERROR", "message": f"Case '{case_id}' not found."}
     if report_format.lower() == "pdf":
         return {
             "status": "SUCCESS",
@@ -399,10 +435,9 @@ def api_get_report(case_id: str, report_format: str = "json") -> Dict[str, Any]:
         }
 
 def _find_item(case_id: str, item_id: str) -> Optional[Dict[str, Any]]:
-    if case_id not in _ACTIVE_CASE_CACHE:
-        _ensure_active_case()
-
-    c_data = _ACTIVE_CASE_CACHE.get(case_id) or list(_ACTIVE_CASE_CACHE.values())[0]
+    _, c_data = _resolve_case(case_id)
+    if not c_data:
+        return None
     for item in c_data.get("recovered_items", []):
         if item.get("item_id") == item_id or item.get("filename") == item_id:
             return item

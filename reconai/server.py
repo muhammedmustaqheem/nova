@@ -24,9 +24,26 @@ from urllib.parse import parse_qs, unquote, urlparse
 from reconai import api
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-FRONTEND_DIR = os.path.join(BASE_DIR, "frontend")
-UPLOAD_DIR = os.path.join(BASE_DIR, "data", "uploads")
+FRONTEND_DIR = os.path.realpath(os.path.join(BASE_DIR, "frontend"))
+UPLOAD_DIR = os.path.realpath(os.path.join(BASE_DIR, "data", "uploads"))
+DEMO_RAW_PATH = os.path.realpath(os.path.join(BASE_DIR, "data", "demo_evidence.raw"))
 MAX_UPLOAD_BYTES = 4 * 1024 ** 3
+
+
+def _resolve_evidence_path(image_path: str) -> str:
+    """
+    Turns a client-supplied evidence path into a safe, real filesystem path.
+    The API must never open an arbitrary path the caller names — that would let a
+    request read (and then let the caller download) any file on the host. Only the
+    bundled demo image, or a file that was itself uploaded through /upload, is allowed.
+    """
+    requested = (image_path or "").strip().replace("\\", "/")
+    if not requested or os.path.realpath(os.path.join(BASE_DIR, requested)) == DEMO_RAW_PATH:
+        return DEMO_RAW_PATH
+    candidate = os.path.realpath(os.path.join(UPLOAD_DIR, os.path.basename(requested)))
+    if not candidate.startswith(UPLOAD_DIR + os.sep) or not os.path.isfile(candidate):
+        raise ValueError("Evidence file not found. Upload it first, or use the demo disk.")
+    return candidate
 
 
 class ReconHandler(BaseHTTPRequestHandler):
@@ -37,16 +54,19 @@ class ReconHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_json_result(self, result, ok_status=HTTPStatus.OK):
+        """Sends an api_* result dict, mapping {"status": "ERROR"} to a 4xx instead of 200."""
+        status = ok_status if result.get("status") == "SUCCESS" else HTTPStatus.BAD_REQUEST
+        return self._send_json(result, status)
 
     def _send_bytes(self, data: bytes, mime: str, filename: str = None):
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Access-Control-Allow-Origin", "*")
         if filename:
             self.send_header("Content-Disposition", f'attachment; filename="{os.path.basename(filename)}"')
         self.end_headers()
@@ -60,13 +80,6 @@ class ReconHandler(BaseHTTPRequestHandler):
         if not length:
             return {}
         return json.loads(self.rfile.read(length).decode("utf-8"))
-
-    def do_OPTIONS(self):
-        self.send_response(HTTPStatus.NO_CONTENT)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.end_headers()
 
     def do_GET(self):
         url = urlparse(self.path)
@@ -87,7 +100,7 @@ class ReconHandler(BaseHTTPRequestHandler):
             cat = query.get("category", ["ALL"])[0]
             stat = query.get("status", ["ALL"])[0]
             src = query.get("source", ["ALL"])[0]
-            return self._send_json(api.api_get_files(case_id, cat, stat, src))
+            return self._send_json_result(api.api_get_files(case_id, cat, stat, src))
         if len(route) == 4 and route[0] == "files" and route[3] == "hex":
             length = int(query.get("length", ["512"])[0])
             return self._send_json(api.api_hex_dump(route[1], route[2], length))
@@ -111,41 +124,56 @@ class ReconHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         url = urlparse(self.path)
         parts = [unquote(p) for p in url.path.strip("/").split("/") if p]
-        if parts[:2] != ["api", "forensics"]:
-            return self._error("Invalid API endpoint", HTTPStatus.NOT_FOUND)
-        route = parts[2:]
 
-        if route == ["upload"]:
-            content_type = self.headers.get("Content-Type", "")
-            filename = unquote(self.headers.get("X-Filename") or "evidence.raw")
-            length = int(self.headers.get("Content-Length") or 0)
-            if length > MAX_UPLOAD_BYTES:
-                return self._error("File exceeds max upload limit (4GB)")
-            file_bytes = self.rfile.read(length) if length else b""
-            return self._send_json(api.api_upload_image(file_bytes, filename))
+        try:
+            # Support both /api/copilot/ask and /api/forensics/*
+            if parts == ["api", "copilot", "ask"]:
+                body = self._read_json()
+                case_id = body.get("case_id") or ""
+                question = body.get("question") or body.get("prompt") or body.get("query") or ""
+                return self._send_json(api.api_copilot_ask(case_id, question))
 
-        if route == ["recover"]:
-            body = self._read_json()
-            image_path = body.get("image_path") or os.path.join("data", "demo_evidence.raw")
-            case_id = body.get("case_id")
-            examiner = body.get("examiner_name") or "Agent V. Vance"
-            scope = body.get("scope") or "Complete Forensic Triage"
-            return self._send_json(api.api_recover_image(image_path, case_id, examiner, scope))
+            if parts[:2] != ["api", "forensics"]:
+                return self._error("Invalid API endpoint", HTTPStatus.NOT_FOUND)
+            route = parts[2:]
 
-        if route == ["copilot"]:
-            body = self._read_json()
-            case_id = body.get("case_id") or ""
-            prompt = body.get("prompt") or body.get("query") or ""
-            return self._send_json(api.api_copilot_ask(case_id, prompt))
+            if route == ["upload"]:
+                filename = unquote(self.headers.get("X-Filename") or "")
+                length = int(self.headers.get("Content-Length") or 0)
+                if length <= 0 or length > MAX_UPLOAD_BYTES:
+                    return self._error("File is empty or exceeds the 4GB upload limit.")
+                file_bytes = self.rfile.read(length)
+                return self._send_json_result(api.api_upload_image(file_bytes, filename))
+
+            if route == ["recover"]:
+                body = self._read_json()
+                try:
+                    image_path = _resolve_evidence_path(body.get("image_path"))
+                except ValueError as e:
+                    return self._error(str(e), HTTPStatus.NOT_FOUND)
+                case_id = body.get("case_id")
+                examiner = body.get("examiner_name")
+                scope = body.get("scope") or "Complete Forensic Triage"
+                return self._send_json_result(api.api_recover_image(image_path, case_id, examiner, scope))
+
+            if route == ["copilot"]:
+                body = self._read_json()
+                case_id = body.get("case_id") or ""
+                prompt = body.get("question") or body.get("prompt") or body.get("query") or ""
+                return self._send_json(api.api_copilot_ask(case_id, prompt))
+        except json.JSONDecodeError:
+            return self._error("Request body is not valid JSON.")
 
         return self._error("Unsupported POST route", HTTPStatus.NOT_FOUND)
 
     def _serve_static(self, path: str):
-        if path in ("/", "", "/index.html"):
-            target_path = os.path.join(FRONTEND_DIR, "index.html")
-        else:
-            rel = path.lstrip("/")
-            target_path = os.path.join(FRONTEND_DIR, rel)
+        rel = "index.html" if path in ("", "/", "/index.html") else path.lstrip("/")
+        target_path = os.path.realpath(os.path.join(FRONTEND_DIR, rel))
+
+        # Refuse anything that resolves outside frontend/ (e.g. "/../reconai/api.py") —
+        # otherwise this endpoint would serve up the server's own source code.
+        if not target_path.startswith(FRONTEND_DIR + os.sep) and target_path != FRONTEND_DIR:
+            return self._error("Not found.", HTTPStatus.NOT_FOUND)
 
         if not os.path.isfile(target_path):
             target_path = os.path.join(FRONTEND_DIR, "index.html")

@@ -354,6 +354,24 @@ When presenting ReconAI to judges, focus on these five core pillars:
 - Sealed JSON report now also covers IOCs, derived artifacts, deduplication and benchmark (`extra_sections`).
 - Tests: `./venv/bin/python -m unittest tests.test_pipeline tests.test_api` → 14/14 pass.
 
+### 2026-09-26 — Security & correctness fixes: Command Center (`reconai/server.py`, `reconai/api.py`, `frontend/index.html`)
+- **Security (all confirmed closed with live requests, not just code review):**
+  - Removed `Access-Control-Allow-Origin: *` and `do_OPTIONS` — the API is same-origin only now; any other site could previously call it from a visitor's browser.
+  - `/recover`'s `image_path` is now validated (`_resolve_evidence_path`) against only the bundled demo disk or a file already under `data/uploads/`, real-path-checked — it used to open any path on the host.
+  - Static file serving now containment-checks the resolved real path against `frontend/` — `GET /../reconai/api.py` used to return the server's own source (verified: was 200 with source, now 404).
+  - Upload filenames are sanitized (`os.path.basename` + an evidence-extension allowlist) before touching disk — a crafted `X-Filename` could previously write outside `data/uploads/`.
+  - Recovered filenames/titles/IOC values/copilot answers are HTML- and JS-string-escaped (`escHtml`/`escJs` in `frontend/index.html`) before going into `innerHTML` or an `onclick="...('...')"` attribute — verified an `<img onerror>` filename and a `'); ...` item_id both render as inert text now.
+- **Correctness:**
+  - `api_get_case_view` read `tampering_summary`/`custody` keys the pipeline never produced (it emits `tampering`, and there was no `custody` key at all) — both silently rendered empty in the UI despite the engine detecting real indicators. Now reads `tampering` and builds `custody` from `read_only_verified`/hashes/audit log. `iocs` was similarly missing from the case view and is now included.
+  - Every endpoint that took a `case_id` (`api_get_case_view`, `api_get_files`, `_find_item`, `api_copilot_ask`, `api_get_report`) silently substituted whatever case happened to be cached first when the requested `case_id` wasn't found, instead of erroring — could hand back a different case's data/report under the requested ID. Centralized in `_resolve_case()`: no `case_id` → bootstrap/use active case (unchanged); a specific unknown `case_id` → not found, never substituted.
+  - `examiner_name` no longer defaults to a fabricated identity ("Agent V. Vance") — `api_recover_image`/the `/recover` route require it explicitly (a false name on a chain-of-custody record is a real forensic-integrity problem, not cosmetic). The demo-bootstrap-only path still auto-fills as "Demo Examiner (auto-generated case)", clearly synthetic.
+  - The frontend's "Case Reference & Examiner" sidebar inputs were rendered but never actually sent — `runPipelineForFile` posted `image_path` only. Now sends `examiner_name`/`case_id`, and blocks with an inline error (no request sent) if the examiner field is empty.
+  - The Intelligence & Graph tab was a fixed array of invented files/IPs/credentials (`_REDS.ENV`, `192.168.1.105`, an AWS key) shown identically for every case regardless of what was actually recovered — directly contradicts the brief's "determine relationships between recovered fragments." Replaced with `buildGraphNodes()`, deriving nodes from the loaded case's real `recovered_items` (top 8 by priority) and real `iocs.records`.
+  - Artifact-card category icons never matched (`iconMap` expected keys like `'image'`; real categories are emoji-prefixed strings like `"🖼️ Photos & Media Evidence"`) — every card fell back to the default icon. Fixed with a keyword match.
+- **Regression caught during this fix and corrected before landing:** a generic `_send_json_result()` helper (maps `{"status":"ERROR"}` → 400) was applied to the copilot endpoints, which use a different response convention (`{"success": bool}`, no `status` key) — this forced every copilot response, including correct/grounded ones, to HTTP 400. Caught live via browser console + network trace, reverted to plain `_send_json` for `/api/copilot/ask` and `/api/forensics/copilot`.
+- **Tests:** `tests/test_copilot.py` and `tests/test_api.py` hardcoded a fixed examiner default / a specific `case_id` string that only worked by riding the two bugs above; updated to resolve the real active case and pass an explicit examiner. `./venv/bin/python -m unittest tests.test_pipeline tests.test_api tests.test_calmstacks_gaps tests.test_intelligence_layer tests.test_copilot` → 30/30 pass.
+- Still open (not in this pass): the "technical architecture presentation" deliverable has not been built.
+
 ---
 
 ## 🔄 Maintenance Protocol

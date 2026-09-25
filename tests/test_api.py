@@ -41,7 +41,9 @@ class TestReconAIAPI(unittest.TestCase):
         self.assertEqual(res_analyze["read_only_mode"], "O_RDONLY")
 
         # 2. Recover
-        res_recover = api_recover_image(self.raw_path)
+        # examiner_name is required for chain of custody — api_recover_image no longer
+        # falls back to a fabricated examiner identity when it is omitted.
+        res_recover = api_recover_image(self.raw_path, examiner_name="QA Test Examiner")
         self.assertEqual(res_recover["status"], "SUCCESS")
         case_id = res_recover["case_id"]
         self.assertIsNotNone(case_id)
