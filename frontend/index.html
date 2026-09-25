@@ -772,49 +772,67 @@
             <div class="pipeline-stage hidden space-y-6" id="stage-timeline">
               <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
-                  <h3 class="text-2xl font-bold text-on-surface">Forensic Incident Timeline & Event Sequence</h3>
-                  <p class="text-sm text-on-surface-variant mt-1">Chronological reconstruction of authenticated events, privilege escalations, exfiltration traces, and drive artifacts.</p>
+                  <h3 class="text-2xl font-extrabold text-on-surface">Forensic Timeline Scrubber</h3>
+                  <p class="text-sm text-on-surface-variant mt-1">Reconstruct exact event sequencing synchronized against trusted NTP reference clock.</p>
                 </div>
                 
                 <!-- NTP System Synchronization Reference Header -->
-                <div class="flex items-center gap-3 px-4 py-2 bg-surface-container-low rounded-xl border border-outline-variant/30 text-xs font-sans">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                <div class="flex items-center gap-3 px-4 py-2 bg-surface-container-low rounded-xl border border-outline-variant/30 text-xs font-mono">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <div>
-                    <div class="text-on-surface font-semibold" id="ntp-reference-time">2026-09-26 02:37:07 UTC</div>
-                    <div class="text-[10px] text-emerald-400 font-medium uppercase tracking-wider" id="ntp-sync-source">NTP TRUSTED SYNC (macOS timed / systemd-timesyncd)</div>
+                    <div class="text-on-surface font-extrabold" id="ntp-reference-time">2026-09-26 02:37:07 UTC</div>
+                    <div class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider" id="ntp-sync-source">NTP TRUSTED SYNC (macOS timed / systemd-timesyncd)</div>
                   </div>
                 </div>
               </div>
 
-              <!-- Executive Narrative Incident Summary Banner -->
-              <div class="p-4 bg-surface-container-high/60 rounded-xl border border-outline-variant/40 flex items-start gap-3 text-sm text-on-surface">
-                <span class="material-symbols-outlined text-on-surface-variant text-[22px] shrink-0 mt-0.5">summarize</span>
-                <div>
-                  <strong class="font-semibold block text-on-surface mb-0.5">Incident Executive Summary:</strong>
-                  <p class="text-xs text-on-surface-variant leading-relaxed font-sans">
-                    Unauthorized access attempts targeted administrative accounts via SSH, culminating in successful remote authentication, interactive root privilege escalation via <code class="font-mono text-on-surface text-[11px] bg-surface-container-highest px-1.5 py-0.5 rounded">sudo</code>, and automated data exfiltration to external C2 node 198.51.100.23 — all occurring within approximately 1 minute.
-                  </p>
-                </div>
-              </div>
-
-              <!-- Severity Filter Tabs (Low-contrast courtroom style) -->
+              <!-- Severity Filter Pills -->
               <div class="flex flex-wrap gap-2" id="timeline-filter-pills">
-                <button class="timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-xs border border-outline-variant/60 shadow-sm transition-colors" data-sev="ALL" onclick="filterTimelineSeverity('ALL')">All Events</button>
-                <button class="timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-sev="CRITICAL" onclick="filterTimelineSeverity('CRITICAL')">Critical (Exfiltration)</button>
-                <button class="timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-sev="HIGH" onclick="filterTimelineSeverity('HIGH')">High (Logins &amp; Sudo)</button>
-                <button class="timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-sev="MEDIUM" onclick="filterTimelineSeverity('MEDIUM')">Medium &amp; Routine</button>
+                <button class="timeline-pill-btn px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-extrabold text-xs transition-all border border-primary shadow-[0_0_12px_rgba(0,229,255,0.3)]" data-sev="ALL" onclick="filterTimelineSeverity('ALL')">All Severities</button>
+                <button class="timeline-pill-btn px-4 py-1.5 rounded-full bg-surface-container text-red-400 hover:bg-surface-container-high font-extrabold text-xs transition-all border border-red-500/30" data-sev="CRITICAL" onclick="filterTimelineSeverity('CRITICAL')">CRITICAL (Exfiltration)</button>
+                <button class="timeline-pill-btn px-4 py-1.5 rounded-full bg-surface-container text-yellow-400 hover:bg-surface-container-high font-extrabold text-xs transition-all border border-yellow-500/30" data-sev="HIGH" onclick="filterTimelineSeverity('HIGH')">HIGH (Sudo &amp; Logins)</button>
+                <button class="timeline-pill-btn px-4 py-1.5 rounded-full bg-surface-container text-emerald-400 hover:bg-surface-container-high font-extrabold text-xs transition-all border border-emerald-500/30" data-sev="MEDIUM" onclick="filterTimelineSeverity('MEDIUM')">MEDIUM (Auth Failures)</button>
               </div>
 
-              <!-- Vertical Connected Timeline Canvas Container -->
-              <div class="p-6 sm:p-8 bg-surface-container-low rounded-2xl border border-outline-variant/30 space-y-6 shadow-md relative overflow-hidden">
-                <div class="flex justify-between items-center text-xs font-sans text-on-surface-variant pb-2 border-b border-outline-variant/20">
-                  <span>Incident Event Sequence (<span class="font-bold text-on-surface" id="scrubber-active-index">1 / 7</span>)</span>
-                  <span class="text-emerald-400 font-medium" id="scrubber-active-time">03:12:01 UTC</span>
+              <!-- Scrubber Canvas Container (Exact Replica of User Screenshot Layout) -->
+              <div class="p-8 bg-surface-container-low rounded-2xl border border-outline-variant/30 space-y-8 shadow-2xl relative overflow-hidden">
+                <!-- Event Nodes Horizontal Bar -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6 items-start" id="timeline-events-container">
+                  <!-- Nodes rendered dynamically by renderTimelineEvents() -->
                 </div>
 
-                <!-- Vertical Connected Timeline Container -->
-                <div class="relative pl-6 sm:pl-10 border-l-2 border-outline-variant/40 space-y-6 my-4" id="timeline-events-container">
-                  <!-- Nodes rendered dynamically by renderTimelineEvents() -->
+                <!-- Range Slider Scrubber -->
+                <div class="pt-4 space-y-2">
+                  <div class="flex justify-between items-center text-xs font-mono text-on-surface-variant font-bold">
+                    <span>SCRUBBER SEQUENCE POSITION: <span class="text-primary font-black" id="scrubber-active-index">1 / 5</span></span>
+                    <span class="text-emerald-400 font-extrabold" id="scrubber-active-time">03:12:01 UTC</span>
+                  </div>
+                  <input class="w-full accent-primary cursor-pointer h-2.5 bg-surface-container rounded-lg focus:outline-none" id="timeline-scrubber-range" max="5" min="1" type="range" value="1" oninput="scrubTimeline(this.value)"/>
+                </div>
+              </div>
+
+              <!-- Selected Event Deep Correlation Inspector -->
+              <div class="p-6 bg-surface-container rounded-2xl border border-primary/40 space-y-3 shadow-xl" id="timeline-event-inspector">
+                <div class="flex items-center justify-between pb-2 border-b border-outline-variant/30">
+                  <div class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary text-[20px]">history_toggle_off</span>
+                    <span class="text-xs font-mono font-bold text-primary uppercase tracking-wider" id="inspector-event-tag">EVENT CORRELATION INSPECTOR</span>
+                  </div>
+                  <span class="px-3 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-mono font-extrabold border border-red-500/30" id="inspector-event-sev">CRITICAL</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono text-xs text-on-surface-variant pt-1">
+                  <div>TIMESTAMP: <span class="text-on-surface font-extrabold" id="inspector-event-time">2026-09-25 03:13:00 UTC</span></div>
+                  <div>SOURCE ARTIFACT: <span class="text-primary font-bold" id="inspector-event-source">_UTHLOG.TXT</span></div>
+                  <div>CLOCK DRIFT: <span class="text-emerald-400 font-bold" id="inspector-event-offset">0.00s offset (In sync with NTP)</span></div>
+                </div>
+
+                <div class="p-4 bg-surface-container-lowest rounded-xl font-mono text-xs text-on-surface leading-relaxed border border-outline-variant/30 space-y-3">
+                  <div id="inspector-event-desc">[secure-gw] kernel: [CRITICAL] Data exfiltration detected over port 443 to external C2 node 198.51.100.23</div>
+                  <button class="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-2 font-mono" onclick="investigateTimelineEventWithCopilot()">
+                    <span class="material-symbols-outlined text-[16px]">psychology</span>
+                    <span>Ask Copilot About This Timeline Event 🤖</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1688,233 +1706,23 @@
     let currentTimelineSeverity = 'ALL';
     let activeTimelineIndex = 0;
 
-    function toggleCollapsedDetails(btn) {
-      const parent = btn.closest('.collapsed-group-box');
-      if (!parent) return;
-      const list = parent.querySelector('.collapsed-list');
-      if (!list) return;
-      const isHidden = list.classList.contains('hidden');
-      if (isHidden) {
-        list.classList.remove('hidden');
-        btn.textContent = 'Hide Collapsed Items';
-      } else {
-        list.classList.add('hidden');
-        const count = list.querySelectorAll('li').length;
-        btn.textContent = `Expand ${count} Collapsed Items`;
-      }
-    }
-
-    function toggleRawLogDetail(btn) {
-      const card = btn.closest('.timeline-card');
-      if (!card) return;
-      const detailBox = card.querySelector('.raw-log-detail');
-      if (!detailBox) return;
-      const isHidden = detailBox.classList.contains('hidden');
-      if (isHidden) {
-        detailBox.classList.remove('hidden');
-        btn.textContent = 'Hide Verification Details';
-      } else {
-        detailBox.classList.add('hidden');
-        btn.textContent = 'View Verification & NTP Sync';
-      }
-    }
-
-    function investigateEventWithCopilot(headline, desc) {
-      switchTab('copilot');
-      const input = document.getElementById('copilot-input');
-      if (input) {
-        input.value = `Explain the forensic significance of this event: "${headline}" (${desc})`;
-      }
-    }
-
-    let currentTimelineEvents = [];
-    let currentTimelineSeverity = 'ALL';
-    let activeTimelineIndex = 0;
-
     function filterTimelineSeverity(sev) {
       currentTimelineSeverity = sev;
       document.querySelectorAll('.timeline-pill-btn').forEach(btn => {
-        const isMatch = btn.getAttribute('data-sev') === sev;
-        if (isMatch) {
-          btn.className = 'timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-xs border border-outline-variant/60 shadow-sm transition-colors';
+        if (btn.getAttribute('data-sev') === sev) {
+          btn.className = 'timeline-pill-btn px-4 py-1.5 rounded-full bg-primary-container text-on-primary-container font-extrabold text-xs transition-all border border-primary shadow-[0_0_12px_rgba(0,229,255,0.3)]';
         } else {
-          btn.className = 'timeline-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors';
+          btn.className = 'timeline-pill-btn px-4 py-1.5 rounded-full bg-surface-container text-on-surface-variant hover:text-on-surface font-extrabold text-xs transition-all border border-outline-variant/40';
         }
       });
       renderTimelineEvents();
     }
 
-    function getProcessedTimelineEvents(rawEvents) {
-      if (!rawEvents || rawEvents.length === 0) return [];
-
-      const processed = [];
-      const fatEntries = [];
-
-      rawEvents.forEach(ev => {
-        const desc = ev.description || '';
-        const descLower = desc.toLowerCase();
-        const typeUpper = (ev.event_type || '').toUpperCase();
-
-        if (descLower.includes('fat directory') || descLower.includes('catalog entry') || descLower.includes('unallocated sector') || typeUpper.includes('FILE_RECOVERY')) {
-          fatEntries.push(ev);
-        } else {
-          let headline = desc;
-          let sev = ev.severity || 'MEDIUM';
-
-          if (descLower.includes('failed password') && descLower.includes('root')) {
-            headline = 'Unauthorized Access Attempt: Failed SSH login for administrative user "root"';
-            sev = 'MEDIUM';
-          } else if (descLower.includes('failed password')) {
-            headline = 'Unauthorized Access Attempt: Failed SSH password authentication attempt';
-            sev = 'MEDIUM';
-          } else if (descLower.includes('accepted password')) {
-            headline = 'Successful Remote Access: User authenticated via SSH from external IP 203.0.113.88';
-            sev = 'HIGH';
-          } else if (descLower.includes('sudo') || descLower.includes('privilege_escalation')) {
-            headline = 'Privilege Escalation: User "deployer" executed sudo to spawn interactive root shell';
-            sev = 'HIGH';
-          } else if (descLower.includes('exfiltration') || descLower.includes('port 443') || descLower.includes('c2 node')) {
-            headline = 'Data Exfiltration Detected: Automated outbound file transmission to external C2 node over port 443';
-            sev = 'CRITICAL';
-          } else if (descLower.includes('hash') || descLower.includes('intake') || descLower.includes('evidence')) {
-            headline = 'Forensic Evidence Intake: Drive image cryptographic SHA-256 hash verified and locked';
-            sev = 'ROUTINE';
-          }
-
-          processed.push({
-            timestamp: ev.timestamp || '',
-            headline: headline,
-            description: desc,
-            severity: sev,
-            source_artifact: ev.source_artifact || '_UTHLOG.TXT',
-            offset_analysis: ev.offset_analysis || '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          });
-        }
-      });
-
-      if (fatEntries.length > 0) {
-        const firstTime = fatEntries[0].timestamp || '2026-09-25 13:49:00 UTC';
-        const lastTime = fatEntries[fatEntries.length - 1].timestamp || firstTime;
-
-        const fileNames = fatEntries.map(e => {
-          const match = e.description.match(/file ['"]?([^'"]+)['"]?/i) || e.description.match(/entry ([^\s]+)/i);
-          return match ? match[1] : e.description;
-        });
-
-        const sampleFiles = fileNames.length >= 5 ? fileNames : [
-          '_REDS.ENV (Sector 48102 - Environment Secrets)',
-          '_ECRYPT.TXT (Sector 48140 - Ransom Note Text)',
-          '_INANCE.PDF (Sector 48210 - Financial Wire Records)',
-          '_UTHLOG.TXT (Sector 48300 - Authentication Logs)',
-          'auth.log.1 (Sector 48350 - Archived Auth Log)',
-          'config.env.bak (Sector 48400 - Backup Config)',
-          'database_master.key (Sector 48420 - Encryption Key)',
-          'shadow_backup (Sector 48450 - Password Hash Backup)',
-          'exfil_archive.tar.gz (Sector 48500 - Staged Archive)',
-          'system_journal.log (Sector 48550 - Kernel Events)',
-          'intake_manifest.json (Sector 48600 - Evidence Manifest)'
-        ];
-
-        processed.push({
-          timestamp: firstTime,
-          headline: `${sampleFiles.length} deleted file catalog entries located in drive sectors`,
-          description: `FileSystem directory table scan identified ${sampleFiles.length} deleted catalog entries on drive partition between ${firstTime.substring(11, 19)} and ${lastTime.substring(11, 19)} UTC.`,
-          severity: 'ROUTINE',
-          source_artifact: fatEntries[0].source_artifact || 'Master File Table / FAT Cluster Array',
-          offset_analysis: '0.00s drift (In sync with NTP reference)',
-          collapsedItems: sampleFiles
-        });
-      }
-
-      if (processed.length === 0) {
-        return [
-          {
-            timestamp: "2026-09-25 03:12:01 UTC",
-            headline: 'Unauthorized Access Attempt: Failed SSH login for administrative user "root"',
-            description: '[secure-gw] sshd[18492]: Failed password for invalid user root from 198.51.100.23 port 54122 ssh2',
-            severity: 'MEDIUM',
-            source_artifact: '_UTHLOG.TXT',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          },
-          {
-            timestamp: "2026-09-25 03:12:04 UTC",
-            headline: 'Unauthorized Access Attempt: Second failed SSH login for account "admin"',
-            description: '[secure-gw] sshd[18494]: Failed password for invalid user admin from 198.51.100.23 port 54124 ssh2',
-            severity: 'MEDIUM',
-            source_artifact: '_UTHLOG.TXT',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          },
-          {
-            timestamp: "2026-09-25 03:12:15 UTC",
-            headline: 'Successful Remote Access: User authenticated via SSH from external IP 203.0.113.88',
-            description: '[secure-gw] sshd[18498]: Accepted password for deployer from 203.0.113.88 port 49210 ssh2',
-            severity: 'HIGH',
-            source_artifact: '_UTHLOG.TXT',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          },
-          {
-            timestamp: "2026-09-25 03:12:22 UTC",
-            headline: 'Privilege Escalation: User "deployer" executed sudo to spawn interactive root shell',
-            description: '[secure-gw] sudo: deployer : TTY=pts/1 ; PWD=/home/deployer ; USER=root ; COMMAND=/bin/bash',
-            severity: 'HIGH',
-            source_artifact: '_UTHLOG.TXT',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          },
-          {
-            timestamp: "2026-09-25 03:13:00 UTC",
-            headline: 'Data Exfiltration Detected: Automated outbound file transmission to external C2 node over port 443',
-            description: '[secure-gw] kernel: [CRITICAL] Data exfiltration detected over port 443 to external C2 node 198.51.100.23',
-            severity: 'CRITICAL',
-            source_artifact: '_UTHLOG.TXT',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          },
-          {
-            timestamp: "2026-09-25 13:49:00 UTC",
-            headline: '11 deleted file catalog entries located in drive sectors',
-            description: 'FileSystem directory table scan identified 11 deleted catalog entries on drive partition between 13:49:00 and 13:49:15 UTC.',
-            severity: 'ROUTINE',
-            source_artifact: 'Master File Table / FAT Cluster Array',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: [
-              '_REDS.ENV (Sector 48102 - Environment Secrets)',
-              '_ECRYPT.TXT (Sector 48140 - Ransom Note Text)',
-              '_INANCE.PDF (Sector 48210 - Financial Wire Records)',
-              '_UTHLOG.TXT (Sector 48300 - Authentication Logs)',
-              'auth.log.1 (Sector 48350 - Archived Auth Log)',
-              'config.env.bak (Sector 48400 - Backup Config)',
-              'database_master.key (Sector 48420 - Encryption Key)',
-              'shadow_backup (Sector 48450 - Password Hash Backup)',
-              'exfil_archive.tar.gz (Sector 48500 - Staged Archive)',
-              'system_journal.log (Sector 48550 - Kernel Events)',
-              'intake_manifest.json (Sector 48600 - Evidence Manifest)'
-            ]
-          },
-          {
-            timestamp: "2026-09-26 02:37:07 UTC",
-            headline: 'Forensic Evidence Intake: Drive image cryptographic SHA-256 hash verified and locked',
-            description: '[intake-engine] Evidence container loaded: SHA-256 58357d70f6f8db593a1fd8943312b79a33575c0a3f995cac7d43b1e885836c3e',
-            severity: 'ROUTINE',
-            source_artifact: 'data/demo_evidence.raw',
-            offset_analysis: '0.00s drift (In sync with NTP reference)',
-            collapsedItems: null
-          }
-        ];
-      }
-
-      return processed;
-    }
-
     function renderTimelineEvents() {
       const container = document.getElementById('timeline-events-container');
-      if (!container) return;
+      if (!container || !currentCaseData) return;
 
-      const timeData = (currentCaseData && currentCaseData.timeline) || {};
+      const timeData = currentCaseData.timeline || {};
       const syncRef = timeData.time_sync_reference || {};
       if (syncRef.reference_utc) {
         const refTimeEl = document.getElementById('ntp-reference-time');
@@ -1923,98 +1731,47 @@
         if (refSrcEl) refSrcEl.textContent = `${syncRef.sync_status || 'SYNCHRONIZED'} (${syncRef.sync_source || 'NTP System Clock'}) • ${syncRef.timezone_offset || 'UTC+05:30'}`;
       }
 
-      let rawEvents = timeData.timeline_events || [];
-      const allEvents = getProcessedTimelineEvents(rawEvents);
+      let rawEvents = timeData.timeline_events || [
+        { timestamp: "2026-09-25 03:12:01 UTC", event_type: "AUTHENTICATION_FAILURE", severity: "MEDIUM", source_artifact: "_UTHLOG.TXT", offset_analysis: "0.00s drift (In sync with NTP reference)", description: "[secure-gw] sshd[18492]: Failed password for invalid user root from 198.51.100.23 port 54122 ssh2" },
+        { timestamp: "2026-09-25 03:12:04 UTC", event_type: "AUTHENTICATION_FAILURE", severity: "MEDIUM", source_artifact: "_UTHLOG.TXT", offset_analysis: "0.00s drift (In sync with NTP reference)", description: "[secure-gw] sshd[18494]: Failed password for invalid user admin from 198.51.100.23 port 54124 ssh2" },
+        { timestamp: "2026-09-25 03:12:15 UTC", event_type: "USER_LOGIN", severity: "HIGH", source_artifact: "_UTHLOG.TXT", offset_analysis: "0.00s drift (In sync with NTP reference)", description: "[secure-gw] sshd[18498]: Accepted password for deployer from 203.0.113.88 port 49210 ssh2" },
+        { timestamp: "2026-09-25 03:12:22 UTC", event_type: "PRIVILEGE_ESCALATION", severity: "HIGH", source_artifact: "_UTHLOG.TXT", offset_analysis: "0.00s drift (In sync with NTP reference)", description: "[secure-gw] sudo: deployer : TTY=pts/1 ; PWD=/home/deployer ; USER=root ; COMMAND=/bin/bash" },
+        { timestamp: "2026-09-25 03:13:00 UTC", event_type: "DATA_EXFILTRATION", severity: "CRITICAL", source_artifact: "_UTHLOG.TXT", offset_analysis: "0.00s drift (In sync with NTP reference)", description: "[secure-gw] kernel: [CRITICAL] Data exfiltration detected over port 443 to external C2 node 198.51.100.23" }
+      ];
 
-      let list = allEvents;
       if (currentTimelineSeverity !== 'ALL') {
-        list = allEvents.filter(e => {
-          if (currentTimelineSeverity === 'MEDIUM') {
-            return e.severity === 'MEDIUM' || e.severity === 'ROUTINE';
-          }
-          return e.severity === currentTimelineSeverity;
-        });
+        currentTimelineEvents = rawEvents.filter(e => e.severity === currentTimelineSeverity);
+      } else {
+        currentTimelineEvents = rawEvents;
       }
 
-      currentTimelineEvents = list;
+      const scrubber = document.getElementById('timeline-scrubber-range');
+      if (scrubber) {
+        scrubber.min = 1;
+        scrubber.max = Math.max(1, currentTimelineEvents.length);
+        scrubber.value = Math.min(activeTimelineIndex + 1, currentTimelineEvents.length);
+      }
+
       container.innerHTML = '';
-
-      if (list.length === 0) {
-        container.innerHTML = `<div class="text-sm text-on-surface-variant font-sans py-8">No events match the selected severity filter.</div>`;
-        return;
-      }
-
-      list.forEach((ev, idx) => {
-        const timeShort = ev.timestamp ? ev.timestamp.substring(11, 19) : '03:12:00';
+      currentTimelineEvents.forEach((ev, idx) => {
+        const timeShort = ev.timestamp ? ev.timestamp.substring(11, 16) : '03:12';
         const isSelected = idx === activeTimelineIndex;
 
-        let sevBadgeClass = 'bg-surface-container-highest text-on-surface-variant border-outline-variant/40';
-        if (ev.severity === 'CRITICAL') {
-          sevBadgeClass = 'bg-red-500/15 text-red-400 border-red-500/30';
-        } else if (ev.severity === 'HIGH') {
-          sevBadgeClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-        } else if (ev.severity === 'MEDIUM') {
-          sevBadgeClass = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-        }
+        const circleClass = isSelected
+          ? 'w-10 h-10 rounded-full bg-primary text-on-primary font-black text-base flex items-center justify-center shadow-[0_0_20px_rgba(0,229,255,0.8)] scale-110 border-2 border-white'
+          : 'w-10 h-10 rounded-full bg-surface-container text-primary font-extrabold text-sm flex items-center justify-center border border-primary/40 group-hover:border-primary group-hover:scale-105 transition-all shadow-md';
 
-        const card = document.createElement('div');
-        card.className = `relative group timeline-card transition-all ${isSelected ? 'scale-[1.01]' : ''}`;
-        card.onclick = () => selectTimelineEvent(idx);
-
-        const circleBg = isSelected
-          ? 'bg-primary text-on-primary border-primary shadow-md'
-          : 'bg-surface-container-highest text-on-surface border-outline-variant/80 group-hover:border-primary group-hover:text-primary';
-
-        card.innerHTML = `
-          <!-- Timeline Marker Circle -->
-          <div class="absolute -left-[31px] sm:-left-[47px] top-4 w-7 h-7 rounded-full ${circleBg} font-bold text-xs flex items-center justify-center border-2 transition-all">
-            ${idx + 1}
-          </div>
-
-          <!-- Event Content Card -->
-          <div class="p-5 bg-surface-container-low/90 rounded-xl border ${isSelected ? 'border-outline-variant/80 shadow-lg' : 'border-outline-variant/30 hover:border-outline-variant/60'} space-y-3">
-            <!-- Header Row: Timestamp, Headline, Severity Tag -->
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div class="flex flex-wrap items-center gap-2.5">
-                <span class="text-xs font-mono text-on-surface font-medium bg-surface-container-highest px-2.5 py-1 rounded border border-outline-variant/20">${escHtml(timeShort)}</span>
-                <h4 class="text-sm font-semibold text-on-surface font-sans leading-snug">${escHtml(ev.headline)}</h4>
-              </div>
-              <span class="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border self-start sm:self-auto ${sevBadgeClass}">${escHtml(ev.severity)}</span>
-            </div>
-
-            <!-- Collapsed Group Items (If repetitive file catalog group) -->
-            ${ev.collapsedItems ? `
-              <div class="collapsed-group-box text-xs text-on-surface-variant bg-surface-container-highest/40 p-3 rounded-lg border border-outline-variant/20 space-y-2">
-                <div class="flex items-center justify-between">
-                  <span class="font-medium text-on-surface font-sans">${ev.collapsedItems.length} deleted file catalog records located on partition</span>
-                  <button type="button" class="text-primary hover:underline text-[11px] font-semibold font-sans" onclick="event.stopPropagation(); toggleCollapsedDetails(this)">Expand ${ev.collapsedItems.length} Collapsed Items</button>
-                </div>
-                <ul class="collapsed-list hidden space-y-1 font-mono text-[11px] pt-2 border-t border-outline-variant/20 text-on-surface/90">
-                  ${ev.collapsedItems.map(item => `<li>• ${escHtml(item)}</li>`).join('')}
-                </ul>
-              </div>
-            ` : ''}
-
-            <!-- Supporting Monospace Raw Log Line -->
-            <div class="bg-surface-container-highest/60 rounded-lg p-3 border border-outline-variant/20 space-y-1">
-              <div class="text-[10px] uppercase font-semibold tracking-wider text-on-surface-variant/80 font-sans">Supporting Raw Technical Log Line</div>
-              <code class="text-xs font-mono text-on-surface break-all block leading-relaxed">${escHtml(ev.description)}</code>
-            </div>
-
-            <!-- Verification & Action Footer -->
-            <div class="pt-2 border-t border-outline-variant/20 flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
-              <div class="flex flex-wrap items-center gap-3 font-sans">
-                <span>Source: <strong class="text-on-surface font-mono font-normal">${escHtml(ev.source_artifact)}</strong></span>
-                <span class="text-emerald-400 font-sans font-normal">NTP Sync: ${escHtml(ev.offset_analysis)}</span>
-              </div>
-              <button type="button" onclick="event.stopPropagation(); investigateEventWithCopilot('${escJsString(ev.headline)}', '${escJsString(ev.description)}')" class="text-xs font-semibold text-primary hover:underline flex items-center gap-1 font-sans">
-                <span class="material-symbols-outlined text-[14px]">psychology</span>
-                <span>Ask Copilot</span>
-              </button>
-            </div>
+        const node = document.createElement('div');
+        node.className = 'flex flex-col items-center text-center space-y-2 cursor-pointer group p-2 rounded-xl transition-all';
+        node.onclick = () => selectTimelineEvent(idx);
+        node.innerHTML = `
+          <div class="${circleClass}">${idx + 1}</div>
+          <div class="text-xs font-mono font-extrabold text-primary">${timeShort}</div>
+          <div class="text-xs font-mono text-on-surface-variant line-clamp-3 max-w-[170px] leading-relaxed group-hover:text-on-surface transition-colors">
+            ${ev.description}
           </div>
         `;
-        container.appendChild(card);
+        container.appendChild(node);
       });
 
       if (currentTimelineEvents.length > 0) {
@@ -2036,6 +1793,20 @@
       if (activeIdxEl) activeIdxEl.textContent = `${activeTimelineIndex + 1} / ${currentTimelineEvents.length}`;
       const activeTimeEl = document.getElementById('scrubber-active-time');
       if (activeTimeEl) activeTimeEl.textContent = ev.timestamp || '03:12:00 UTC';
+
+      const rangeEl = document.getElementById('timeline-scrubber-range');
+      if (rangeEl) rangeEl.value = activeTimelineIndex + 1;
+
+      // Update Inspector Panel
+      document.getElementById('inspector-event-sev').textContent = ev.severity || 'HIGH';
+      document.getElementById('inspector-event-sev').className = `px-3 py-1 rounded-full text-xs font-mono font-extrabold border ${
+        ev.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+        ev.severity === 'HIGH' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+      }`;
+      document.getElementById('inspector-event-time').textContent = ev.timestamp || '2026-09-25 03:12:00 UTC';
+      document.getElementById('inspector-event-source').textContent = ev.source_artifact || '_UTHLOG.TXT';
+      document.getElementById('inspector-event-offset').textContent = ev.offset_analysis || '0.00s drift (In sync with NTP)';
+      document.getElementById('inspector-event-desc').textContent = ev.description || '';
     }
 
     async function submitCopilotQuery() {
