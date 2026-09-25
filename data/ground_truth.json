@@ -1,6 +1,6 @@
 {
   "case_id": "RECONAI-HACKATHON-2026",
-  "created_at": "2026-09-25T21:58:53.461779Z",
+  "created_at": "2026-09-25T23:09:08.591111Z",
   "disk_size_bytes": 67108864,
   "files": [
     {
@@ -37,8 +37,8 @@
       "expected_quality_score": 100,
       "is_fragmented": false,
       "is_deleted": false,
-      "size_bytes": 215,
-      "sha256": "ae459270c7e49695dcfdd950f1ee861301095623273ccd3ed02a69caf9da2310",
+      "size_bytes": 10891,
+      "sha256": "de58b867202b876afcc4bb617060af186bd9f5fe88b6ac2091274d935096d42c",
       "offset": 552960,
       "description": "Active camera image of physical evidence."
     },
@@ -51,31 +51,31 @@
       "is_fragmented": true,
       "fragments": [
         {
-          "offset": 557056,
-          "size": 104,
+          "offset": 565248,
+          "size": 5350,
           "type": "header"
         },
         {
-          "offset": 569344,
-          "size": 105,
+          "offset": 577536,
+          "size": 5351,
           "type": "trailer"
         }
       ],
-      "size_bytes": 209,
-      "sha256": "c086171c67535c76bd3d8d5e75052e6d3853cc65bd7723e906c8420919dac475",
+      "size_bytes": 10701,
+      "sha256": "e57b57b5a2bbba9282d2532c0f881dd5dd57d927a9319b0ae16f5d8d0042ad1d",
       "description": "Fragmented suspect passport photo split into 2 non-contiguous sectors."
     },
     {
-      "filename": "carved_png_581632.png",
+      "filename": "carved_png_589824.png",
       "recovery_method": "signature_carving",
       "category": "Media & Communications",
       "expected_integrity": "INTACT",
       "expected_quality_score": 100,
       "is_fragmented": false,
       "is_deleted": true,
-      "size_bytes": 177,
-      "sha256": "d787d71a7268993f5542af2c3633009abc411bd63eb80285b18db17e33a0f2aa",
-      "offset": 581632,
+      "size_bytes": 1109,
+      "sha256": "40cc33149b342f31f257712fdf2785a0213750b84247503bd09387e4340c25ca",
+      "offset": 589824,
       "description": "Carved offshore bank logo found directly in raw unallocated sectors."
     },
     {
@@ -87,8 +87,8 @@
       "is_fragmented": false,
       "is_deleted": true,
       "size_bytes": 345,
-      "sha256": "107d86c57a88c68ea4d2f58eb8acaf30c14c70121d97b80889f81a9fc4b753a1",
-      "offset": 585728,
+      "sha256": "56b08698e58dbe80d3af13ca996dc53fa880d66ec991ca51c97f77a52b359f43",
+      "offset": 593920,
       "description": "Corrupted ZIP archive with damaged payload byte structure."
     },
     {
@@ -102,7 +102,7 @@
       "is_deleted": true,
       "size_bytes": 555,
       "sha256": "bdcb44daf9b3e89f89eddfcb55bf16ab919e7aeddf71eb936823022e2f60b970",
-      "offset": 589824,
+      "offset": 598016,
       "description": "Server authentication log confirming brute force and root privilege escalation."
     },
     {
@@ -116,7 +116,7 @@
       "is_deleted": true,
       "size_bytes": 115,
       "sha256": "4bfc79b57c7da7c19b09b8380399c0c1494171c6240999fa91b3c1d26664dc7e",
-      "offset": 593920,
+      "offset": 602112,
       "description": "Truncated PDF missing EOF marker, demonstrating partial recoverability."
     },
     {
@@ -131,7 +131,7 @@
       "is_ransomware": true,
       "size_bytes": 4096,
       "sha256": "c33417cdc29da3cc0cfb3efffebfa148bc571cedcfc99071417bcd9a5145b251",
-      "offset": 598016,
+      "offset": 606208,
       "description": "Ransomware-encrypted high entropy data file."
     },
     {
@@ -146,7 +146,7 @@
       "is_ransom_note": true,
       "size_bytes": 245,
       "sha256": "680fbae8668da198f4ae206a7d6323d9b5770d237d98985f7020b0b6173e87bd",
-      "offset": 602112,
+      "offset": 610304,
       "description": "Ransomware extortion note left by threat actors."
     },
     {
@@ -161,21 +161,21 @@
       "is_extension_spoofed": true,
       "size_bytes": 148,
       "sha256": "66a3e98f52de0c5c42e266b7d722b11cfc8317042095e3e1bc7ead1f92dad1e4",
-      "offset": 606208,
+      "offset": 614400,
       "description": "Executable file disguised with a PDF extension to evade security filters."
     }
   ],
   "wiped_regions": [
     {
-      "offset": 610304,
+      "offset": 618496,
       "size": 16384,
       "pattern": "0x00 NIST Clear"
     },
     {
-      "offset": 626688,
+      "offset": 634880,
       "size": 8192,
       "pattern": "0xFF Solid Flash Erase"
     }
   ],
-  "disk_image_sha256": "7cb83483314e1d7001fc467be914b646185f5e91f95c0c688cc513ebf2a7f257"
+  "disk_image_sha256": "62c3d72450950ada86d98abebd87395eb30842511ee4eb1ea8637a8532cf6ac9"
 }

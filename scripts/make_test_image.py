@@ -22,47 +22,68 @@ RESERVED_SECTORS = 32
 SECTORS_PER_FAT = 512
 FAT_COUNT = 2
 
-def create_minimal_valid_png(width=100, height=100, color=(0, 242, 254)) -> bytes:
-    """Generate a minimal valid PNG file in pure Python (no PIL required)."""
-    def chunk(tag: bytes, data: bytes) -> bytes:
-        crc = zlib.crc32(tag + data) & 0xFFFFFFFF
-        return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
-
-    header = b'\x89PNG\r\n\x1a\n'
-    ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
-    # Raw scanlines: 0 filter byte followed by RGB
-    raw_data = bytearray()
-    for _ in range(height):
-        raw_data.append(0)  # Filter type 0 (None)
-        raw_data.extend(bytes(color) * width)
-    idat = chunk(b'IDAT', zlib.compress(bytes(raw_data)))
-    iend = chunk(b'IEND', b'')
-    return header + ihdr + idat + iend
+def create_minimal_valid_png(width=320, height=180, color=(0, 242, 254), text_label="OFFSHORE DIGITAL SEAL") -> bytes:
+    """Generate a high-resolution, valid PNG image with visual forensic text label."""
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new('RGB', (width, height), color=(15, 23, 42))
+        d = ImageDraw.Draw(img)
+        d.rectangle([(8, 8), (width - 8, height - 8)], outline=color, width=2)
+        d.text((20, 25), "RECONAI EVIDENCE RECOVERY", fill=(0, 229, 255))
+        d.text((20, 60), f"ARTIFACT: {text_label}", fill=(255, 255, 255))
+        d.text((20, 105), "HEADER: VALID 89 50 4E 47", fill=(78, 222, 163))
+        d.text((20, 140), "STATUS: 100% INTACT PNG STREAM", fill=(0, 229, 255))
+        buf = io.BytesIO()
+        img.save(buf, format='PNG')
+        return buf.getvalue()
+    except Exception:
+        def chunk(tag: bytes, data: bytes) -> bytes:
+            crc = zlib.crc32(tag + data) & 0xFFFFFFFF
+            return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', crc)
+        header = b'\x89PNG\r\n\x1a\n'
+        ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', 100, 100, 8, 2, 0, 0, 0))
+        raw_data = bytearray()
+        for _ in range(100):
+            raw_data.append(0)
+            raw_data.extend(bytes(color) * 100)
+        idat = chunk(b'IDAT', zlib.compress(bytes(raw_data)))
+        iend = chunk(b'IEND', b'')
+        return header + ihdr + idat + iend
 
 def create_minimal_valid_jpeg() -> bytes:
-    """Generate a minimal valid 1x1 JPEG image in pure Python."""
-    return bytes([
-        0xFF, 0xD8,  # SOI
-        0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01,
-        0x00, 0x48, 0x00, 0x48, 0x00, 0x00,  # APP0 (JFIF)
-        0xFF, 0xDB, 0x00, 0x43, 0x00,  # DQT
-        *([8] * 64),
-        0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,  # SOF0
-        0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01,
-        0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B,  # DHT
-        0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0x7F,  # SOS + data
-        0xFF, 0xD9   # EOI
-    ])
+    """Generate a valid JPEG image."""
+    return create_rich_jpeg("VALID FORENSIC IMAGE")
 
-def create_rich_jpeg(text_label="RECONAI EVIDENCE") -> bytes:
-    """Generate a slightly larger valid JPEG image with EXIF metadata for forensics."""
-    base = create_minimal_valid_jpeg()
-    # Insert custom comment marker (COM)
-    com_data = f"Forensic Artifact: {text_label} | Case: #2026-X7".encode('utf-8')
-    com_chunk = b'\xFF\xFE' + struct.pack('>H', len(com_data) + 2) + com_data
-    # Insert right after SOI
-    return base[:2] + com_chunk + base[2:]
+def create_rich_jpeg(text_label="RECONAI EVIDENCE PHOTO") -> bytes:
+    """Generate a high-res, valid 320x180 JPEG image with visual text label using Pillow."""
+    try:
+        from PIL import Image, ImageDraw
+        img = Image.new('RGB', (320, 180), color=(15, 23, 42))
+        d = ImageDraw.Draw(img)
+        # Draw sleek border & background box
+        d.rectangle([(8, 8), (312, 172)], outline=(0, 229, 255), width=2)
+        d.rectangle([(14, 14), (306, 45)], fill=(31, 31, 35))
+        d.text((20, 22), "RECONAI NEURAL RECONSTRUCTION", fill=(0, 229, 255))
+        d.text((20, 55), "RECOVERED EVIDENCE ARTIFACT:", fill=(148, 163, 184))
+        d.text((20, 78), text_label, fill=(255, 255, 255))
+        d.text((20, 115), "STATUS: 100% VALID JPEG STREAM", fill=(78, 222, 163))
+        d.text((20, 145), "CONFIDENTIAL DFIR EVIDENCE", fill=(148, 163, 184))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=85)
+        return buf.getvalue()
+    except Exception:
+        base = bytes([
+            0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01,
+            0x00, 0x48, 0x00, 0x48, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, *([8] * 64),
+            0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,
+            0xFF, 0xC4, 0x00, 0x1F, 0x00, 0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01,
+            0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04,
+            0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01,
+            0x00, 0x00, 0x3F, 0x00, 0x7F, 0xFF, 0xD9
+        ])
+        com_data = f"Forensic Artifact: {text_label} | Case: #2026-X7".encode('utf-8')
+        com_chunk = b'\xFF\xFE' + struct.pack('>H', len(com_data) + 2) + com_data
+        return base[:2] + com_chunk + base[2:]
 
 def create_valid_pdf(title="CONFIDENTIAL FINANCIAL AUDIT", body="ReconAI Evidence Document") -> bytes:
     """Generate a valid, parseable PDF document."""
