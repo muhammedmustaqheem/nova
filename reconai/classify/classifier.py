@@ -404,3 +404,89 @@ def compute_completeness_estimate(item: Dict[str, Any]) -> Tuple[str, str]:
         return "0%", "Structure destroyed or zero-filled on disk."
     return "Unknown", "Data completeness cannot be reliably estimated."
 
+
+def compute_evidence_impact_score(item: Dict[str, Any], total_artifacts: int = 10) -> Dict[str, Any]:
+    """
+    Computes Evidence Impact Score from 0 to 100 without replacing P1/P2/P3.
+    Breakdown factors:
+      - Recoverability (max 25)
+      - Integrity (max 25)
+      - Relationships (max 20)
+      - Sensitivity & Timeline relevance (max 15)
+      - Uniqueness (max 15)
+    Returns dictionary with total score (0-100) and explicit factor breakdown.
+    """
+    bucket = item.get("recoverability_bucket", "FULLY RECOVERABLE")
+    integrity_score = float(item.get("integrity_score", 50.0))
+    conf = float(item.get("confidence_score", 100.0))
+    category = item.get("category", "📄 Documents & Reports")
+    sens = CLASS_WEIGHTS.get(category, 0.50)
+
+    # 1. Recoverability (max 25)
+    if bucket == "FULLY RECOVERABLE":
+        rec_pts = 25
+    elif bucket == "PARTIALLY RECOVERABLE":
+        rec_pts = 18
+    elif bucket == "FRAGMENT ONLY":
+        rec_pts = 10
+    else:
+        rec_pts = 0
+
+    # 2. Integrity & Confidence (max 25)
+    int_pts = int((integrity_score / 100.0 * 0.6 + conf / 100.0 * 0.4) * 25)
+
+    # 3. Relationships (max 20)
+    frags_count = len(item.get("fragments_linked", []))
+    rel_pts = min(20, 10 + frags_count * 5)
+
+    # 4. Sensitivity & Timeline Relevance (max 15)
+    sens_pts = int(sens * 15)
+
+    # 5. Uniqueness (max 15)
+    is_user = item.get("is_user_file", True)
+    uniq_pts = 15 if is_user else 8
+
+    total = rec_pts + int_pts + rel_pts + sens_pts + uniq_pts
+    total = min(100, max(0, total))
+
+    return {
+        "score": total,
+        "breakdown": {
+            "recoverability": (rec_pts, 25),
+            "integrity": (int_pts, 25),
+            "relationships": (rel_pts, 20),
+            "sensitivity_relevance": (sens_pts, 15),
+            "uniqueness": (uniq_pts, 15),
+        },
+        "rationale": f"Recoverability ({rec_pts}/25) + Integrity ({int_pts}/25) + Relationships ({rel_pts}/20) + Sensitivity ({sens_pts}/15) + Uniqueness ({uniq_pts}/15)"
+    }
+
+
+def generate_evidence_dna(item: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Generates a comprehensive Evidence DNA / Fingerprint profile for an artifact.
+    """
+    offset = item.get("offset", 0)
+    size = item.get("size_bytes", 0)
+    sector_start = offset // 512
+    sector_end = (offset + size) // 512
+
+    return {
+        "artifact_id": item.get("item_id", "unknown"),
+        "original_filename": item.get("filename", "unknown"),
+        "recovered_filename": item.get("filename", "unknown"),
+        "file_type_class": item.get("file_type_class", "UNKNOWN"),
+        "primary_recovery_state": item.get("recovery_state", "CARVED"),
+        "sha256": item.get("sha256", "pending"),
+        "source_offset_hex": f"0x{offset:08X}",
+        "sector_range": f"Sectors {sector_start:,} – {sector_end:,}",
+        "integrity_status": item.get("integrity_status", "INTACT"),
+        "recovery_confidence": f"{item.get('confidence_score', 100.0):.1f}%",
+        "category": item.get("category", "General"),
+        "technical_priority": item.get("technical_priority", "P3 — LOW PRIORITY"),
+        "impact_score": item.get("impact_score", 50),
+        "completeness": item.get("completeness_pct", "100%"),
+        "fragment_count": len(item.get("fragments_linked", [])),
+    }
+
+

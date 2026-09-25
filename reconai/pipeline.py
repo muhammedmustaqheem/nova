@@ -33,7 +33,8 @@ from reconai.repair.repairer import repair_artifact
 from reconai.classify.classifier import (
     classify_and_prioritize, get_file_friendly_meta, filter_items_by_scope,
     classify_file_type, classify_primary_recovery_state,
-    compute_technical_priority, compute_completeness_estimate
+    compute_technical_priority, compute_completeness_estimate,
+    compute_evidence_impact_score, generate_evidence_dna
 )
 from reconai.classify.ioc_extractor import aggregate_case_iocs
 from reconai.tampering.tampering_detector import detect_tampering_indicators
@@ -245,7 +246,7 @@ def run_recovery_pipeline(
         item["case_id"] = case_id
         item["created_at"] = datetime.utcnow().isoformat() + "Z"
 
-        # CALMSTACKS Gap Fields
+        # CALMSTACKS Gap Fields & Forensic Intelligence Layer
         item["file_type_class"] = classify_file_type(item)
         item["recovery_state"] = classify_primary_recovery_state(item, is_repaired=(item["item_id"] in repaired_parent_ids))
         tech_prio, p_score_str, tech_reasons = compute_technical_priority(item)
@@ -255,8 +256,15 @@ def run_recovery_pipeline(
         item["completeness_pct"] = comp_pct
         item["completeness_basis"] = comp_basis
 
-        # Item-level Dual Explanation
+        impact_data = compute_evidence_impact_score(item, total_artifacts=len(all_artifacts))
+        item["impact_score"] = impact_data["score"]
+        item["impact_breakdown"] = impact_data["breakdown"]
+        item["impact_rationale"] = impact_data["rationale"]
+
+        # Item-level Dual Explanation & Evidence DNA
         item["explanations"] = generate_item_explanation(item)
+        item["evidence_dna"] = generate_evidence_dna(item)
+
 
 
     all_artifacts.sort(key=lambda x: x["priority_score"], reverse=True)

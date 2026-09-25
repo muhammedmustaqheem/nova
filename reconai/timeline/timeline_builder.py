@@ -93,6 +93,7 @@ def build_forensic_timeline(
                             "event_type": ev_type,
                             "source_artifact": fn,
                             "severity": sev,
+                            "evidence_tag": "[OBSERVED]",
                             "description": f"[{host}] {msg[:140]}"
                         })
             except Exception:
@@ -114,6 +115,7 @@ def build_forensic_timeline(
                             "event_type": "PHOTO_CAPTURED",
                             "source_artifact": fn,
                             "severity": "LOW",
+                            "evidence_tag": "[OBSERVED]",
                             "description": f"Camera shutter capture recorded in photo EXIF metadata for '{fn}'."
                         })
             except Exception:
@@ -132,6 +134,7 @@ def build_forensic_timeline(
                         "event_type": "DOCUMENT_CREATED",
                         "source_artifact": fn,
                         "severity": "LOW",
+                        "evidence_tag": "[DERIVED]",
                         "description": f"PDF document creation timestamp recorded in internal XMP catalog."
                     })
             except Exception:
@@ -146,6 +149,7 @@ def build_forensic_timeline(
                             "event_type": "DOCUMENT_CREATED",
                             "source_artifact": fn,
                             "severity": "LOW",
+                            "evidence_tag": "[DERIVED]",
                             "description": f"PDF document compiled: '{fn}'"
                         })
 
@@ -163,6 +167,7 @@ def build_forensic_timeline(
                             "event_type": "OFFICE_DOC_CREATED",
                             "source_artifact": fn,
                             "severity": "LOW",
+                            "evidence_tag": "[DERIVED]",
                             "description": f"Office document authoring timestamp from docProps/core.xml."
                         })
             except Exception:
@@ -175,6 +180,7 @@ def build_forensic_timeline(
                 "event_type": "FILE_DELETED",
                 "source_artifact": fn,
                 "severity": "MEDIUM",
+                "evidence_tag": "[OBSERVED]",
                 "description": f"FAT directory catalog entry marked with deletion byte 0xE5 for '{fn}'."
             })
 
@@ -188,3 +194,4 @@ def build_forensic_timeline(
         "latest_timestamp": events[-1]["timestamp"] if events else "N/A",
         "summary": f"Unified forensic timeline assembled with {len(events)} chronologically indexed event(s)."
     }
+
