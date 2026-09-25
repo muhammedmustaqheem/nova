@@ -25,25 +25,38 @@ def compute_evidence_hash(image_path: str) -> Dict[str, Any]:
     total_bytes = 0
     block_count = 0
 
+    # A folder of loose evidence files is sealed as one unit: files are hashed
+    # in sorted-name order so the combined digest is reproducible.
+    if os.path.isdir(image_path):
+        source_files = [
+            os.path.join(image_path, f) for f in sorted(os.listdir(image_path))
+            if not f.startswith('.') and os.path.isfile(os.path.join(image_path, f))
+        ]
+        display_name = f"Evidence folder ({len(source_files)} files)"
+    else:
+        source_files = [image_path]
+        display_name = os.path.basename(image_path)
+
     # Strictly read-only binary mode ('rb')
-    with open(image_path, 'rb') as f:
-        while True:
-            chunk = f.read(CHUNK_SIZE)
-            if not chunk:
-                break
-            sha256_hash.update(chunk)
-            sha1_hash.update(chunk)
-            md5_hash.update(chunk)
-            crc_val = zlib.crc32(chunk, crc_val)
-            total_bytes += len(chunk)
-            block_count += 1
+    for source in source_files:
+        with open(source, 'rb') as f:
+            while True:
+                chunk = f.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                sha256_hash.update(chunk)
+                sha1_hash.update(chunk)
+                md5_hash.update(chunk)
+                crc_val = zlib.crc32(chunk, crc_val)
+                total_bytes += len(chunk)
+                block_count += 1
 
     from datetime import datetime
     timestamp_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
     return {
         "image_path": os.path.abspath(image_path),
-        "filename": os.path.basename(image_path),
+        "filename": display_name,
         "size_bytes": total_bytes,
         "size_mb": round(total_bytes / (1024 * 1024), 2),
         "formatted_size": f"{total_bytes:,} bytes",

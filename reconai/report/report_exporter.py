@@ -13,7 +13,7 @@ Includes:
 import json
 import hashlib
 from datetime import datetime
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Optional, Tuple
 
 def generate_json_report(
     case_meta: Dict[str, Any],
@@ -22,10 +22,12 @@ def generate_json_report(
     tampering_summary: Dict[str, Any],
     timeline_summary: Dict[str, Any],
     audit_log_entries: List[Dict[str, Any]],
-    recovered_items: List[Dict[str, Any]]
+    recovered_items: List[Dict[str, Any]],
+    extra_sections: Optional[Dict[str, Any]] = None
 ) -> Tuple[str, str]:
     """
     Builds a machine-readable JSON forensic case manifest, sealed with a SHA-256 digest.
+    extra_sections are merged in before sealing, so they are covered by the seal too.
     Returns: (json_string, report_sha256_seal)
     """
     report_dict: Dict[str, Any] = {
@@ -57,6 +59,9 @@ def generate_json_report(
         ]
     }
 
+    if extra_sections:
+        report_dict.update(extra_sections)
+
     # Deterministic canonical serialization for self-hashing
     canonical_repr = json.dumps(report_dict, sort_keys=True, indent=2, default=str)
     report_seal = hashlib.sha256(canonical_repr.encode('utf-8')).hexdigest()
@@ -66,7 +71,9 @@ def generate_json_report(
     return final_json, report_seal
 
 def _escape_pdf_text(text: str) -> str:
-    """Escapes special characters for PDF literal strings."""
+    """Escapes special characters for PDF literal strings.
+    The built-in PDF fonts are Latin-1 only, so emoji and other symbols are dropped."""
+    text = str(text).encode('latin-1', errors='ignore').decode('latin-1').strip()
     return text.replace('\\', '\\\\').replace('(', '\\(').replace(')', '\\)')
 
 def generate_pdf_report(
@@ -106,11 +113,16 @@ def generate_pdf_report(
     stream_lines.append("0 -18 Td")
     stream_lines.append(f"(Evidence Image: {_escape_pdf_text(evidence_fn)}) Tj")
     stream_lines.append("0 -15 Td")
-    stream_lines.append(f"(Size: {case_meta.get('disk_size_bytes', 0):,} bytes | Read-Only Mode: O_RDONLY Verified) Tj")
+    stream_lines.append(f"(Size: {case_meta.get('disk_size_bytes', 0):,} bytes | Examiner: {_escape_pdf_text(case_meta.get('examiner_name', 'N/A'))}) Tj")
     stream_lines.append("0 -15 Td")
-    stream_lines.append(f"(Primary SHA-256 Seal: {_escape_pdf_text(sha256_seal[:48])}...) Tj")
+    stream_lines.append(f"(Acquisition SHA-256: {_escape_pdf_text(sha256_seal)}) Tj")
     stream_lines.append("0 -15 Td")
-    stream_lines.append(f"(Post-Analysis Re-Hash: VERIFIED BIT-FOR-BIT MATCH) Tj")
+    stream_lines.append(f"(Post-Analysis SHA-256: {_escape_pdf_text(case_meta.get('post_analysis_sha256', 'NOT COMPUTED'))}) Tj")
+    stream_lines.append("0 -15 Td")
+    if case_meta.get("read_only_verified"):
+        stream_lines.append("(Read-Only Verification: MATCH - evidence unmodified by analysis) Tj")
+    else:
+        stream_lines.append("(Read-Only Verification: MISMATCH - evidence changed during analysis, see audit trail) Tj")
 
     stream_lines.append("/F1 12 Tf")
     stream_lines.append("0 -24 Td")
@@ -161,7 +173,7 @@ def generate_pdf_report(
     stream_lines.append("(Verified by ReconAI Autonomous Forensic Reconstruction Engine v1.2.0) Tj")
     stream_lines.append("ET")
 
-    content_stream = "\n".join(stream_lines).encode('latin-1')
+    content_stream = "\n".join(stream_lines).encode('latin-1', errors='replace')
 
     # Construct complete valid PDF 1.4 document
     pdf_parts = []

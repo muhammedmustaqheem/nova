@@ -166,6 +166,32 @@ def get_source_badge(source: str) -> str:
     return f'<span class="badge {cls}" title="{tip}">{SOURCE_LABELS.get(source, source)}</span>'
 
 
+def get_priority_badge(prio: str) -> str:
+    p = (prio or "P3 — LOW PRIORITY").upper()
+    if "P1" in p:
+        color = "#EF4444"
+        tip = "💡 HIGH TECHNICAL RECOVERY PRIORITY: Complete or near-complete recoverable stream with strong confidence."
+    elif "P2" in p:
+        color = "#F59E0B"
+        tip = "💡 MEDIUM TECHNICAL RECOVERY PRIORITY: Partial recoverable stream or medium confidence."
+    else:
+        color = "#3B82F6"
+        tip = "💡 LOW TECHNICAL RECOVERY PRIORITY: Fragment only or severe corruption."
+    return f'<span class="badge" title="{tip}" style="color:{color}; border:1px solid {color}; background-color:{color}22;">{p}</span>'
+
+
+def get_state_badge(state: str) -> str:
+    s = (state or "CARVED").upper()
+    colors = {
+        "INTACT": "#10B981", "DELETED": "#F59E0B", "CARVED": "#A855F7",
+        "RECONSTRUCTED": "#00F2FE", "PARTIALLY_RECOVERED": "#F97316",
+        "REPAIRED": "#EC4899", "CORRUPTED": "#EF4444", "UNRECOVERABLE": "#64748B"
+    }
+    color = colors.get(s, "#64748B")
+    return f'<span class="badge" title="Primary Recovery State: {s}" style="color:{color}; border:1px solid {color}; background-color:{color}22;">{s}</span>'
+
+
+
 def short_hash(h: str, n: int = 12) -> str:
 
     return f"{h[:n]}…" if h else ""
@@ -431,6 +457,36 @@ else:
         src_cols[2].metric("AI-reassembled files", stats["reassembled"], help=f"From {stats['orphan_fragments']} orphan fragments")
         src_cols[3].metric("Derived repairs", stats.get("derived_repairs", 0), help="Reconstructed copies — originals are never altered")
 
+        prio_cols = st.columns(3)
+        prio_cols[0].metric("P1 — High Priority", stats.get("p1_high_priority", 0), help="High technical recoverability & high confidence")
+        prio_cols[1].metric("P2 — Medium Priority", stats.get("p2_medium_priority", 0), help="Partial recoverability or medium confidence")
+        prio_cols[2].metric("P3 — Low Priority", stats.get("p3_low_priority", 0), help="Fragment only or severe corruption")
+
+        with st.expander("🧠 Intelligence Engine & AI Reconstruction Architecture (Click for Details)", expanded=False):
+            st.markdown("""
+            #### 🔬 AI-Assisted Heuristic Reconstruction Pipeline
+            ReconAI combines deterministic forensic carving with an **intelligent graph-based reassembly engine**:
+            
+            ```
+            RAW DISK IMAGE
+                  ↓
+            1. FEATURE EXTRACTION  ──→ [Entropy, 256-Bin Byte Histogram, Boundary ΔH, Sector Proximity, Magic Signature]
+                  ↓
+            2. PAIRWISE GRAPH      ──→ [Pairwise Relationship Score: Hist Sim (40%) + Boundary (35%) + Format (25%)]
+                  ↓
+            3. PATH REASSEMBLY     ──→ [Greedy Best-Path Chaining from Header to Trailer Candidates]
+                  ↓
+            4. DECODER VALIDATION  ──→ [Pillow / PyPDF / ZipFile Structural Parser Checks]
+                  ↓
+            5. PRIORITY & VERDICT  ──→ [Technical Recovery Priority (P1/P2/P3) + 4 Recoverability Buckets]
+            ```
+            
+            * **Pairwise Feature Vectors**: Calculates Shannon entropy transition ($\Delta H$), byte distribution cosine similarity, and cluster offset proximity.
+            * **Explainable Reasoning**: Every reassembly decision produces a transparent feature score and evidence breakdown.
+            * **Safety Guarantee**: Original evidence is accessed `O_RDONLY`. Derived repairs are saved separately with unique SHA-256 seals.
+            """)
+
+
         st.markdown("---")
         nar_c1, nar_c2 = st.columns([3, 2])
         with nar_c1:
@@ -491,11 +547,13 @@ else:
 
         st.caption(f"{len(filtered)} of {len(items)} artifacts · select a row to inspect it")
         df = pd.DataFrame([{
-            "Priority": i["priority_score"],
+            "Tech Priority": i.get("technical_priority", "P3 — LOW PRIORITY"),
             "Title": i.get("friendly_title", i["filename"]),
             "Filename": i["filename"],
+            "File Type": i.get("file_type_class", "UNKNOWN"),
+            "Recovery State": i.get("recovery_state", "CARVED"),
+            "Completeness": i.get("completeness_pct", "100%"),
             "Category": i["category"],
-            "Recoverability": i.get("recoverability_bucket", ""),
             "Integrity %": i["integrity_score"],
             "Confidence %": i.get("confidence_score", 100.0),
             "Source": SOURCE_LABELS.get(i["source"], i["source"]),
@@ -510,7 +568,6 @@ else:
             selection = st.dataframe(
                 df, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="single-row",
                 column_config={
-                    "Priority": st.column_config.ProgressColumn("Priority", min_value=0, max_value=100, format="%.1f"),
                     "Integrity %": st.column_config.ProgressColumn("Integrity %", min_value=0, max_value=100, format="%.0f"),
                     "Confidence %": st.column_config.NumberColumn(format="%.1f"),
                     "SHA-256": st.column_config.TextColumn(width="small"),
@@ -528,7 +585,7 @@ else:
             <div class="metric-card" style="border-left: 5px solid {BUCKET_COLORS.get(inspected.get('recoverability_bucket'), '#00F2FE')}; margin-bottom: 14px;">
                 <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
                     <span style="font-size:16px; font-weight:700;">🔬 {inspected.get('friendly_title', inspected['filename'])}</span>
-                    <span>{get_bucket_badge(inspected.get('recoverability_bucket', ''))} {get_status_badge(inspected['integrity_status'])} {get_source_badge(inspected['source'])}</span>
+                    <span>{get_priority_badge(inspected.get('technical_priority'))} {get_state_badge(inspected.get('recovery_state'))} {get_bucket_badge(inspected.get('recoverability_bucket'))} {get_status_badge(inspected['integrity_status'])} {get_source_badge(inspected['source'])}</span>
                 </div>
                 <div class="metric-sub"><span class="mono">{inspected['filename']}</span> · {inspected.get('use_case', '')}</div>
             </div>""", unsafe_allow_html=True)
@@ -570,15 +627,19 @@ else:
                 st.caption(f"Total **{inspected['integrity_score']:.0f}/100** · {inspected.get('details', {}).get('details', '')}")
 
                 st.markdown(f"""
-| | |
+| Property | Value |
 |---|---|
 | Item ID | `{inspected['item_id']}` |
+| File Type Class | `{inspected.get('file_type_class', 'UNKNOWN')}` |
+| Primary Recovery State | `{inspected.get('recovery_state', 'CARVED')}` |
+| Technical Priority | `{inspected.get('technical_priority', 'P3')}` |
+| Data Completeness | `{inspected.get('completeness_pct', '100%')}` ({inspected.get('completeness_basis', '')}) |
 | Disk offset | `0x{inspected.get('offset', 0):08X}` ({inspected.get('offset', 0):,}) |
 | Size | `{inspected.get('size_bytes', 0):,} bytes` |
 | Assembly confidence | `{inspected.get('confidence_score', 100)}%` |
-| Priority | `{inspected['priority_score']}` — {inspected.get('priority_rationale', '')} |
 | Deleted entry | `{inspected.get('is_deleted', 'n/a')}` |
 """)
+
                 st.caption("SHA-256")
                 st.code(inspected.get("sha256", ""), language="text")
                 st.download_button("⬇️ Original recovered bytes", data=data, file_name=inspected["filename"],

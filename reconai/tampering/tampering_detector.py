@@ -120,7 +120,7 @@ def detect_tampering_indicators(
                 })
 
     # --- 2. BITSTREAM-LEVEL SECTOR CHECKS ---
-    if os.path.exists(image_path):
+    if os.path.isfile(image_path):
         with open(image_path, 'rb') as f:
             raw_bytes = f.read()
 

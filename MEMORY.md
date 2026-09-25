@@ -344,6 +344,18 @@ When presenting ReconAI to judges, focus on these five core pillars:
 
 ---
 
+## 📝 Change Log
+
+### 2026-09-25 — UI rebuilt around the forensic workflow (v1.3.0)
+- **UI (`app.py`)** reorganised into 7 tabs: Overview · Evidence · Reconstruction · Threats & Timeline · Relationships · Search · Report & Custody. It now shows pipeline outputs that were computed but never displayed: recoverability buckets and restoration %, fragment map with join reasons, unmatched fragments, derived repairs (downloadable), duplicate groups, tampering indicators, timeline, dual-mode narrative, per-item 5-factor score breakdown, hash-chained audit trail, and the PDF report.
+- **Removed duplicates:** second set of main-page uploaders, pre-run Extraction Scope radio (tier filter is in the Evidence tab), category hub cards, cards-grid view, sidebar quick guide, sidebar DB wipe, and the separately built unsealed JSON report. Sidebar and main area share one dark theme (`.streamlit/config.toml [theme]`).
+- **Custody:** Case reference + required examiner name are passed to the pipeline and audit log. Acquisition hashes are cached per file (path, mtime, size).
+- **Bug fixes:** folder ("Loose evidence files") ingest crashed with `IsADirectoryError` (`hasher`, `tampering_detector` and `entropy_map` now handle folders); every item was tagged System/OS because `compute_priority` compared legacy class names (`USER_EVIDENCE_CLASSES`); PDF report crashed on emoji categories and always printed "VERIFIED BIT-FOR-BIT MATCH" (it now reports the real match/mismatch plus both full hashes); pypdf warning spam silenced.
+- Sealed JSON report now also covers IOCs, derived artifacts, deduplication and benchmark (`extra_sections`).
+- Tests: `./venv/bin/python -m unittest tests.test_pipeline tests.test_api` → 14/14 pass.
+
+---
+
 ## 🔄 Maintenance Protocol
 
 Whenever significant architectural changes, new feature implementations, file additions/deletions, or refactoring take place:

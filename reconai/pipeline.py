@@ -17,6 +17,7 @@ Integrates all 12 advanced hackathon capabilities into an automated, strictly re
 
 import os
 import hashlib
+import logging
 import platform
 from datetime import datetime
 from typing import Dict, Any, List, Callable, Optional
@@ -29,7 +30,11 @@ from reconai.carve.carver import carve_raw_image
 from reconai.reassemble.fragment_engine import reassemble_fragments
 from reconai.integrity.validator import validate_item_integrity, compute_recoverability_summary
 from reconai.repair.repairer import repair_artifact
-from reconai.classify.classifier import classify_and_prioritize, get_file_friendly_meta, filter_items_by_scope
+from reconai.classify.classifier import (
+    classify_and_prioritize, get_file_friendly_meta, filter_items_by_scope,
+    classify_file_type, classify_primary_recovery_state,
+    compute_technical_priority, compute_completeness_estimate
+)
 from reconai.classify.ioc_extractor import aggregate_case_iocs
 from reconai.tampering.tampering_detector import detect_tampering_indicators
 from reconai.cluster.clusterer import cluster_evidence_items
@@ -39,6 +44,9 @@ from reconai.report.report_exporter import generate_json_report, generate_pdf_re
 from reconai.benchmark import evaluate_ground_truth
 from reconai.carve.entropy_map import generate_disk_entropy_map
 from reconai.db.models import init_db, save_case, save_recovered_item, save_fragment
+
+# pypdf logs every malformed xref it meets; damaged PDFs are expected input here
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 
 def run_recovery_pipeline(
     image_path: str,
@@ -67,31 +75,7 @@ def run_recovery_pipeline(
     # --- 1. INGESTION, PRIMARY SEAL & AUDIT LOG ---
     update_progress("Step 1/10: Ingesting evidence & initializing hash-chained audit log...", 0.08)
     
-    if is_directory:
-        # Calculate combined hash for directory intake
-        dir_files = [os.path.join(image_path, f) for f in sorted(os.listdir(image_path)) if not f.startswith('.')]
-        combined_hasher = hashlib.sha256()
-        total_size = 0
-        for fp in dir_files:
-            if os.path.isfile(fp):
-                total_size += os.path.getsize(fp)
-                with open(fp, 'rb') as f:
-                    combined_hasher.update(f.read())
-        
-        dir_sha256 = combined_hasher.hexdigest()
-        hash_meta = {
-            "image_path": image_path,
-            "filename": f"User_Evidence_Folder ({len(dir_files)} files)",
-            "size_bytes": total_size,
-            "size_mb": round(total_size / (1024 * 1024), 2),
-            "sha256": dir_sha256 if dir_sha256 != hashlib.sha256().hexdigest() else hashlib.sha256(b"empty_folder").hexdigest(),
-            "sha1": "N/A (Folder)",
-            "md5": "N/A (Folder)",
-            "crc32": "N/A (Folder)",
-            "timestamp_utc": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-        }
-    else:
-        hash_meta = compute_evidence_hash(image_path)
+    hash_meta = compute_evidence_hash(image_path)
 
     if not case_id:
         case_id = f"CASE-{hash_meta['sha256'][:8].upper()}"
@@ -244,8 +228,9 @@ def run_recovery_pipeline(
         "repair_types": list(set(r["repair_type"] for r in repaired_artifacts))
     })
 
-    # --- 7. CLASSIFICATION & SCOPE PRIORITIZATION (9 CLASSES) ---
-    update_progress("Step 7/10: Classifying 9 content categories & computing scope-weighted priority scores...", 0.74)
+    # --- 7. CLASSIFICATION & SCOPE PRIORITIZATION (9 CLASSES + P1/P2/P3 PRIORITY) ---
+    update_progress("Step 7/10: Classifying 9 content categories & computing P1/P2/P3 priority scores...", 0.74)
+    repaired_parent_ids = {r["parent_item_id"] for r in repaired_artifacts}
     for item in all_artifacts:
         cat, prio, preview, scope = classify_and_prioritize(item, scope=extraction_scope)
         f_meta = get_file_friendly_meta(item["filename"], cat, preview)
@@ -259,8 +244,20 @@ def run_recovery_pipeline(
         item["naming_note"] = f_meta["naming_note"]
         item["case_id"] = case_id
         item["created_at"] = datetime.utcnow().isoformat() + "Z"
+
+        # CALMSTACKS Gap Fields
+        item["file_type_class"] = classify_file_type(item)
+        item["recovery_state"] = classify_primary_recovery_state(item, is_repaired=(item["item_id"] in repaired_parent_ids))
+        tech_prio, p_score_str, tech_reasons = compute_technical_priority(item)
+        item["technical_priority"] = tech_prio
+        item["technical_priority_reasons"] = tech_reasons
+        comp_pct, comp_basis = compute_completeness_estimate(item)
+        item["completeness_pct"] = comp_pct
+        item["completeness_basis"] = comp_basis
+
         # Item-level Dual Explanation
         item["explanations"] = generate_item_explanation(item)
+
 
     all_artifacts.sort(key=lambda x: x["priority_score"], reverse=True)
     user_evidence_files = [a for a in all_artifacts if a.get("artifact_scope") == "User Evidence File"]
@@ -299,6 +296,10 @@ def run_recovery_pipeline(
     partial_count = sum(1 for a in all_artifacts if a["integrity_status"] == "PARTIAL")
     corrupt_count = sum(1 for a in all_artifacts if a["integrity_status"] == "CORRUPTED")
 
+    p1_count = sum(1 for a in all_artifacts if "P1" in a.get("technical_priority", ""))
+    p2_count = sum(1 for a in all_artifacts if "P2" in a.get("technical_priority", ""))
+    p3_count = sum(1 for a in all_artifacts if "P3" in a.get("technical_priority", ""))
+
     stats = {
         "total_recovered": len(all_artifacts),
         "user_evidence_count": len(user_evidence_files),
@@ -310,6 +311,9 @@ def run_recovery_pipeline(
         "intact": intact_count,
         "partial": partial_count,
         "corrupted": corrupt_count,
+        "p1_high_priority": p1_count,
+        "p2_medium_priority": p2_count,
+        "p3_low_priority": p3_count,
         "orphan_fragments": len(orphan_fragments),
         "derived_repairs": len(repaired_artifacts),
         "tampering_alerts": tampering_results["total_indicators"],
@@ -357,7 +361,15 @@ def run_recovery_pipeline(
     # Generate Reports
     json_report_str, report_sha = generate_json_report(
         case_record, stats, recoverability_summary, tampering_results,
-        timeline_results, audit_summary["entries"], all_artifacts
+        timeline_results, audit_summary["entries"], all_artifacts,
+        extra_sections={
+            "extracted_iocs": ioc_results,
+            "derived_artifacts": [
+                {k: v for k, v in r.items() if k != "data"} for r in repaired_artifacts
+            ],
+            "deduplication": clustering_results["summary"],
+            "ground_truth_benchmark": {k: v for k, v in benchmark_metrics.items() if k != "matches"},
+        }
     )
     pdf_report_bytes, pdf_sha = generate_pdf_report(
         case_record, stats, recoverability_summary, tampering_results,

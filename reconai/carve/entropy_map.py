@@ -27,7 +27,7 @@ def generate_disk_entropy_map(image_path: str, block_size: int = 64 * 1024, max_
     Samples the disk image at regular intervals to generate an entropy map.
     Returns: list of blocks with offset, entropy, and type classification.
     """
-    if not os.path.exists(image_path):
+    if not os.path.isfile(image_path):
         return []
 
     file_size = os.path.getsize(image_path)

@@ -44,6 +44,13 @@ CLASS_WEIGHTS["Executables"] = 0.50
 
 CATEGORY_WEIGHTS = CLASS_WEIGHTS
 
+# Content classes created by a person (vs. OS / tooling footprints)
+USER_EVIDENCE_CLASSES = {
+    "🔑 Credentials & Access Keys", "💰 Financial & Wire Transfers", "🪪 Identity & Personal Data",
+    "📄 Documents & Reports", "🚨 Ransomware & Encrypted Blobs", "🖼️ Photos & Media Evidence",
+    "Credentials & Keys", "Financial", "Personal Data (PII)", "Document", "Image", "Encrypted Blobs",
+}
+
 
 # Regex Patterns for Deep Payload Inspection
 CREDENTIAL_PATTERNS = [
@@ -189,9 +196,7 @@ def compute_priority(
     integrity = float(item.get("integrity_score", item.get("score", 50.0)))
 
     # Determine Artifact Scope (User Evidence vs System/OS)
-    is_user = content_class in [
-        "Credentials & Keys", "Financial", "Personal Data (PII)", "Document", "Image", "Encrypted Blobs"
-    ]
+    is_user = content_class in USER_EVIDENCE_CLASSES
     artifact_scope = "User Evidence File" if is_user else "System / OS File"
 
     # Scope Relevance Multiplier
@@ -291,3 +296,111 @@ def get_file_friendly_meta(filename: str, category: str, preview: str = "") -> D
             "use_case": f"Investigative {category} file recovered during forensic disk analysis.",
             "naming_note": f"Artifact {filename} classified as {category} based on payload signatures."
         }
+
+
+def classify_file_type(item: Dict[str, Any]) -> str:
+    """
+    Standardized File Type Classification: IMAGE, DOCUMENT, PDF, ARCHIVE, DATABASE, TEXT, LOG, EXECUTABLE, UNKNOWN.
+    """
+    ext = (item.get("extension") or os.path.splitext(item.get("filename", ""))[1]).lower()
+    data = item.get("data", b"")
+    if ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]:
+        return "IMAGE"
+    elif ext == ".pdf" or data.startswith(b"%PDF"):
+        return "PDF"
+    elif ext in [".docx", ".xlsx", ".pptx", ".doc", ".rtf"]:
+        return "DOCUMENT"
+    elif ext in [".zip", ".tar", ".gz", ".7z", ".rar"] or data.startswith(b"PK\x03\x04"):
+        return "ARCHIVE"
+    elif ext in [".sqlite", ".db", ".sqlite3"] or data.startswith(b"SQLite format 3"):
+        return "DATABASE"
+    elif ext in [".log"] or "auth" in item.get("filename", "").lower():
+        return "LOG"
+    elif ext in [".txt", ".env", ".json", ".xml", ".csv", ".md"]:
+        return "TEXT"
+    elif ext in [".exe", ".dll", ".so", ".bin"] or data.startswith(b"MZ") or data.startswith(b"\x7fELF"):
+        return "EXECUTABLE"
+    return "UNKNOWN"
+
+
+def classify_primary_recovery_state(item: Dict[str, Any], is_repaired: bool = False) -> str:
+    """
+    Standardized Primary Recovery State: INTACT, DELETED, CARVED, FRAGMENTED, RECONSTRUCTED, PARTIALLY_RECOVERED, REPAIRED, CORRUPTED, UNRECOVERABLE.
+    """
+    source = item.get("source", "")
+    is_deleted = item.get("is_deleted", False)
+    is_fragmented = item.get("is_fragmented", False)
+    integrity = item.get("integrity_status", "INTACT")
+    bucket = item.get("recoverability_bucket", "")
+
+    if source == "fragment_reassembly" or is_fragmented:
+        return "RECONSTRUCTED"
+    elif is_repaired:
+        return "REPAIRED"
+    elif is_deleted and source == "filesystem_undelete":
+        return "DELETED"
+    elif source == "signature_carving":
+        return "CARVED"
+    elif integrity == "INTACT" or bucket == "FULLY RECOVERABLE":
+        return "INTACT"
+    elif integrity == "PARTIAL" or bucket == "PARTIALLY RECOVERABLE":
+        return "PARTIALLY_RECOVERED"
+    elif integrity == "CORRUPTED":
+        return "CORRUPTED"
+    elif bucket == "UNRECOVERABLE":
+        return "UNRECOVERABLE"
+    return "CARVED"
+
+
+def compute_technical_priority(item: Dict[str, Any]) -> Tuple[str, str, List[str]]:
+    """
+    Assigns Technical Recovery Priority: P1 — HIGH PRIORITY, P2 — MEDIUM PRIORITY, P3 — LOW PRIORITY.
+    Does NOT claim legal or investigative importance; focuses purely on technical recoverability.
+    Returns: (priority_tag, priority_score_str, rationale_reasons)
+    """
+    p_score = float(item.get("priority_score", 50.0))
+    conf = float(item.get("confidence_score", 100.0))
+    integrity = item.get("integrity_status", "INTACT")
+    bucket = item.get("recoverability_bucket", "FULLY RECOVERABLE")
+    
+    reasons = []
+    if conf >= 85.0:
+        reasons.append(f"High confidence score ({conf:.0f}%)")
+    if integrity == "INTACT":
+        reasons.append("Decoder structural validation passed")
+    elif integrity == "PARTIAL":
+        reasons.append("Partial payload recovered")
+    if bucket == "FULLY RECOVERABLE":
+        reasons.append("Fully restorable file stream")
+    
+    if conf >= 85.0 and integrity in ("INTACT", "PARTIAL") and bucket in ("FULLY RECOVERABLE", "PARTIALLY RECOVERABLE"):
+        tag = "P1 — HIGH PRIORITY"
+    elif conf >= 50.0 or integrity == "PARTIAL":
+        tag = "P2 — MEDIUM PRIORITY"
+    else:
+        tag = "P3 — LOW PRIORITY"
+
+    return tag, f"{p_score:.1f}", reasons
+
+
+def compute_completeness_estimate(item: Dict[str, Any]) -> Tuple[str, str]:
+    """
+    Provides a measurable technical data completeness estimate.
+    Returns: (completeness_pct_str, basis_explanation)
+    """
+    integrity = item.get("integrity_status", "INTACT")
+    bucket = item.get("recoverability_bucket", "FULLY RECOVERABLE")
+    breakdown = item.get("score_breakdown", {})
+
+    if integrity == "INTACT" and bucket == "FULLY RECOVERABLE":
+        return "100%", "Header, payload structure, and footer fully verified by decoder."
+    elif bucket == "PARTIALLY RECOVERABLE":
+        pts = breakdown.get("recovery_ratio", 7)
+        pct = min(95, max(50, int((pts / 10.0) * 100)))
+        return f"{pct}%", "Payload partially truncated; salvageable content streams preserved."
+    elif bucket == "FRAGMENT ONLY":
+        return "35%", "Isolated cluster fragment without complete format headers/footers."
+    elif bucket == "UNRECOVERABLE":
+        return "0%", "Structure destroyed or zero-filled on disk."
+    return "Unknown", "Data completeness cannot be reliably estimated."
+
