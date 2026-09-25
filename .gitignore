@@ -31,5 +31,8 @@ Thumbs.db
 # Generated Data & DBs
 data/*.db
 data/*.raw
+data/*.json
 data/uploads/
+recovery/
+
 

@@ -697,13 +697,13 @@ else:
             st.session_state.recovery_results = None
             st.rerun()
 
-    # 5 Main Tabs
+    # 5 Focused Forensic Workflow Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📊 Executive Dashboard",
-        "📁 Recovered Items",
-        "🕸️ Relationship Graph",
-        "🔍 Natural Language Search",
-        "📄 Forensic Report"
+        "📥 1. Evidence",
+        "🔍 2. Analyze",
+        "⚙️ 3. Recover",
+        "📁 4. Artifacts",
+        "📄 5. Reports"
     ])
 
     # ----------------------------------------------------

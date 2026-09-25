@@ -1,88 +1,60 @@
-# 🛡️ ReconAI: AI-Assisted Digital Evidence Reconstruction & Recovery
+# 🛡️ ReconAI: Digital Forensic File Recovery & Reconstruction Platform
 
-> **AI-Assisted Intelligent Data Recovery and Digital Evidence Reconstruction tool**  
-> Built for a 24-hour cybersecurity hackathon using a 100% free and open-source stack.
+> **Specialized Digital Evidence Preservation, Recovery, Reconstruction, and Validation Engine**  
+> Built for Cybersecurity & Digital Forensics Hackathons using a 100% free and open-source stack.
 
-ReconAI ingests raw disk images (`.raw`, `.dd`, `.img`), preserves strict read-only chain of custody, performs dual recovery (filesystem metadata analysis + signature-based carving), reassembles split fragments with AI/heuristic confidence scoring, evaluates structural file integrity (0–100%), classifies evidence semantically into threat categories, renders interactive relationship graphs, and enables natural language evidence queries re-ranked by relevance and file integrity.
-
----
-
-## ⚡ The 6 Core Features
-
-1. **Dual Recovery (Filesystem + Signature Carving)**
-   - Traverses deleted filesystem inodes (FAT16/FAT32 via `pytsk3` with an automated pure-Python sector undelete fallback) to recover files with intact metadata.
-   - Carves raw unallocated sectors using magic byte signatures (JPEG, PNG, PDF, ZIP, TXT) when filesystem metadata is destroyed.
-2. **AI Fragment Reconstruction + Confidence Score (0–100%)**
-   - Discovers orphan header fragments and trailer chunks split across non-contiguous clusters.
-   - Computes boundary entropy transitions, format syntax validation, and scores reassembly confidence (0–100%).
-3. **Integrity & Quality Score (0–100%)**
-   - Deep structural verification: tests whether recovered files actually open cleanly without format errors.
-   - Utilizes Pillow for image decoding, `pypdf` for document structure/streams, and `zipfile` for CRC-32 testing.
-   - Classifies artifacts as `INTACT` (80–100%), `PARTIAL` (40–79%), or `CORRUPTED` (0–39%).
-4. **Semantic Classification & Investigator Prioritization**
-   - Categorizes recovered evidence into investigative categories (`Financial & Invoices`, `Credentials & Secrets`, `Network & System Logs`, `Confidential Documents`, `Media`).
-   - Prioritizes investigator workflow: $\text{Priority Score} = \text{Category Weight} \times (\text{Integrity} \times 0.7 + \text{Confidence} \times 0.3)$.
-5. **Interactive Relationship Graph**
-   - NetworkX + Pyvis graph visualizing fragment-to-file links (`REASSEMBLED_FROM`), recovery sources, and cross-evidence entities (crypto wallet addresses, forensic IPs).
-6. **Natural Language Semantic Search**
-   - Type conversational queries like *"unauthorized offshore wire transfer"* or *"leaked database credentials"*.
-   - Multi-factor re-ranking: $\text{Rank Score} = \text{Relevance} \times \text{Integrity Multiplier}$.
+ReconAI solves a critical problem in digital investigations: recovering deleted, damaged, fragmented, and partially overwritten files from raw forensic disk images (`.raw`, `.dd`, `.img`) and user evidence packages while maintaining strict read-only chain of custody.
 
 ---
 
-## 🛠️ Free Technology Stack
+## ⚡ The 5-Stage Core Forensic Workflow
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Frontend UI** | Streamlit | Pure Python, fast prototyping, dark cyber theme |
-| **Disk Parsing** | `pytsk3` + Pure-Python FAT Sector Carver | Zero dependency lock-in, runs on macOS, Linux, Windows |
-| **Fragment Reassembly** | Entropy gradient + Structural format validator | Fast, explainable 0–100% confidence scoring |
-| **Integrity Testing** | Pillow, `pypdf`, `zipfile`, `hashlib` | Deep file format structure verification |
-| **Graph Visualization** | NetworkX + Pyvis | Force-directed dark interactive physics graph |
-| **Semantic Search** | `sentence-transformers` (all-MiniLM-L6-v2) + TF-IDF fallback | Neural search with instant zero-download fallback |
-| **Database** | SQLite3 | Embedded persistent forensic case storage |
-
----
-
-## 📂 Project Architecture
+The application UI is structured around one clear, powerful forensic workflow:
 
 ```
-NOVA/
-├── .vscode/
-│   ├── settings.json               # Python environment & interpreter path
-│   └── launch.json                 # 1-click VS Code run/debug profiles
-├── data/
-│   ├── demo_evidence.raw           # 64MB synthetic forensic disk image
-│   ├── ground_truth.json           # Ground-truth verification manifest
-│   └── reconai.db                  # SQLite database storing cases & artifacts
-├── scripts/
-│   └── make_test_image.py          # Synthetic disk generator with fragmentation & deleted files
-├── reconai/
-│   ├── ingest/
-│   │   ├── hasher.py               # Read-only SHA-256 evidence seal & chain-of-custody
-│   │   └── fs_reader.py            # pytsk3 + sector-level FAT undelete parser
-│   ├── carve/
-│   │   ├── signatures.py           # Magic bytes for JPEG, PNG, PDF, ZIP, TXT
-│   │   └── carver.py               # Fast raw sector carver & orphan fragment collector
-│   ├── reassemble/
-│   │   └── fragment_matcher.py     # AI fragment reassembly & confidence scoring (0-100%)
-│   ├── integrity/
-│   │   └── validator.py            # Pillow, pypdf, zipfile integrity validator
-│   ├── classify/
-│   │   └── classifier.py           # Semantic threat categorization & priority ranking
-│   ├── search/
-│   │   └── semantic_search.py      # Natural language search with relevance × integrity
-│   ├── graph/
-│   │   └── graph_builder.py        # NetworkX + Pyvis dark forensic relationship graph
-│   ├── db/
-│   │   └── models.py               # SQLite storage for cases, items, and fragments
-│   └── pipeline.py                 # Unified 6-stage forensic recovery orchestrator
-├── tests/
-│   └── test_pipeline.py            # Automated test suite for all 6 features
-├── app.py                          # Streamlit application with custom dark cyber theme
-├── requirements.txt                # Free open-source Python dependencies
-└── README.md                       # Documentation & instructions
+📥 1. EVIDENCE        🔒 Case Creation, SHA-256 Intake Seal & Chain of Custody
+        ↓
+🔍 2. ANALYZE         📂 Filesystem Undelete, Magic Sector Carving & Shannon Entropy
+        ↓
+⚙️ 3. RECOVER         🧩 AI Fragment Reassembly, Safe Format Repair & Integrity Validation
+        ↓
+📁 4. ARTIFACTS        🎯 Catchy Threat Category Hub, Bounded Hex Inspector & Downloads
+        ↓
+📄 5. REPORTS          📜 Court-Ready DFIR Examination Report (JSON & PDF Exports)
 ```
+
+---
+
+## 🛠️ Key Capabilities & Problem Solved
+
+1. **Forensic Preservation & Chain of Custody**:
+   - Opens evidence bit-streams strictly in read-only mode (`O_RDONLY`).
+   - Calculates pre-analysis and post-analysis cryptographic seals (**SHA-256**, **SHA-1**, **MD5**, **CRC-32**) to verify bit-for-bit zero alteration (`VERIFIED ✓`).
+   - Appends audit trail logs tracking all intake, carving, and reassembly operations.
+
+2. **Filesystem Recovery + Raw Signature Carving**:
+   - Traverses deleted filesystem inodes (FAT16, FAT32, exFAT, NTFS) for `0xE5` deletion markers.
+   - Carves raw unallocated sectors using magic numbers (`JPEG`, `PNG`, `PDF`, `ZIP`, `SQLite`, `TXT/LOG/ENV`).
+
+3. **Fragment Detection & Reconstruction**:
+   - Detects non-contiguous orphan cluster gaps using boundary byte entropy transition gradients.
+   - Reconstructs split fragments into complete files with transparent 0–100% confidence scores and evidence rationale.
+
+4. **Programmatic Corruption Detection & Safe Repair**:
+   - Programmatically tests recovered files using real decoders (`Pillow` for images, `pypdf` for documents, `zipfile` for archives).
+   - Classifies artifacts into 4 strict buckets: `VALID`, `PARTIALLY VALID`, `CORRUPTED`, `UNRECOVERABLE`.
+   - Safely repairs truncated headers/trailers into derived files tagged `DERIVED ARTIFACT — REPAIRED/RECONSTRUCTED`. Original evidence is never modified!
+
+5. **Catchy Category Explorer & Direct Artifact Downloads**:
+   - Organizes evidence into catchy categories:
+     - 🔑 **Credentials & Access Keys**
+     - 💰 **Financial & Wire Transfers**
+     - 🪪 **Identity & Personal Data**
+     - 📄 **Documents & Reports**
+     - 🚨 **Ransomware & Encrypted Blobs**
+     - ⚙️ **System & Attack Logs**
+     - 🖼️ **Photos & Media Evidence**
+   - Provides a bounded 256-byte Hex Dump Inspector, payload previews, and direct 1-click **Download Artifact** buttons.
 
 ---
 
@@ -90,26 +62,17 @@ NOVA/
 
 ### 1. Environment Setup
 ```bash
-# Clone or navigate to the repository
-cd /path/to/NOVA
+# Navigate to repository directory
+cd /Users/muhammedmustaqheem/Desktop/NOVA
 
-# Create and activate virtual environment
-python3 -m venv venv
+# Activate Python virtual environment
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Generate Synthetic Test Disk (64MB)
-```bash
-python3 scripts/make_test_image.py
-```
-This generates:
-- `data/demo_evidence.raw`: 64MB raw disk image containing deleted sensitive documents, fragmented passport photo, leaked credentials, unallocated bank logo, and corrupted archive.
-- `data/ground_truth.json`: Ground truth manifest for automated scoring.
-
-### 3. Launch the Streamlit Web Application
+### 2. Launch Streamlit Forensic Web Platform
 ```bash
 streamlit run app.py
 ```
@@ -117,51 +80,44 @@ Open [http://localhost:8501](http://localhost:8501) in your browser.
 
 ---
 
-## 💻 Running in VS Code
-
-This repository includes pre-configured VS Code debug targets:
-1. Open this folder in VS Code (`code .`).
-2. Press `Ctrl+Shift+D` (or `Cmd+Shift+D` on macOS) to open the **Run & Debug** pane.
-3. Select any target from the dropdown:
-   - **`ReconAI: Streamlit Web App`**: 1-click launch of the web interface with debugger attached.
-   - **`ReconAI: Generate Test Image`**: Regenerates the 64MB demo disk image and ground truth.
-   - **`ReconAI: Run Pipeline Tests`**: Runs the complete unit and integration test suite.
-4. Press **F5** to start.
-
----
-
 ## 🧪 Automated Testing
 
-Run the automated test suite verifying all 6 core features:
+Run the automated test suite verifying all forensic recovery capabilities:
 ```bash
-python3 -m unittest tests/test_pipeline.py
+python3 -m unittest discover tests
 ```
 
 Expected output:
-```
-Ran 7 tests in 2.48s
+```text
+Ran 14 tests in 8.66s
 OK
 ```
 
 ---
 
-## 🛡️ Hackathon Demo Walkthrough
+## 🛡️ Hackathon Demonstration Workflow
 
-1. **Sidebar - Ingest & Seal:**
-   - Select **"⚡ 64MB Demo Disk"**.
-   - Notice the instant cryptographic **SHA-256 Chain-of-Custody seal**.
-   - Click **"🚀 Run Recovery Pipeline"**.
-2. **Tab 1: 📊 Executive Dashboard:**
-   - View recovered file metrics, intact vs corrupted ratio, category distributions, and top priority items.
-3. **Tab 2: 📁 Recovered Items:**
-   - Filter by status (`INTACT`, `PARTIAL`, `CORRUPTED`) or category (`Credentials & Secrets`, `Financial & Invoices`).
-   - Click any item to inspect its hex dump, decoded text stream, or render recovered images.
-   - Download any reconstructed file with 1 click.
-4. **Tab 3: 🕸️ Relationship Graph:**
-   - Explore the force-directed interactive graph showing how fragments link to parent files and how entities like Crypto Wallets (`0x742d...`) and Forensic IPs (`198.51.100.23`) cross-link evidence.
-5. **Tab 4: 🔍 Natural Language Search:**
-   - Click demo buttons like *"💰 Offshore wire transfer"* or *"🔑 Leaked database secrets"*.
-   - View results re-ranked by Relevance × Integrity.
-6. **Tab 5: 📄 Forensic Report:**
-   - Review the official DFIR case report and export to JSON or CSV.
+1. **Step 1 — Upload Evidence (`📥 1. Evidence`):**
+   - Drag & drop seized evidence files or raw disk images into the **Digital Evidence Upload Center**.
+   - Review the instant SHA-256 seal and read-only custody status (`VERIFIED ✓`).
+2. **Step 2 — Analyze (`🔍 2. Analyze`):**
+   - Click **`🚀 Run Recovery Pipeline`**.
+   - Observe real-time progress across filesystem undelete, raw sector carving, and Shannon sector entropy mapping.
+3. **Step 3 — Review Recovery & Repair (`⚙️ 3. Recover`):**
+   - Inspect reconstructed fragment chains, derived repaired artifacts, and itemized 0–100% confidence score explanations.
+4. **Step 4 — Browse & Download Artifacts (`📁 4. Artifacts`):**
+   - Click Catchy Category Hub Cards (`🔑 Credentials`, `💰 Financial`) or switch between **Visual Evidence Cards Grid** and **Detailed Forensic Table**.
+   - Inspect raw 256-byte hex dumps and click **`⬇️ Download Artifact`**.
+5. **Step 5 — Export Court Deliverable (`📄 5. Reports`):**
+   - Review the official examination report and export signed **JSON Manifests** or **PDF Court Deliverables**.
 
+---
+
+## 🔒 Forensic Integrity Disclaimer
+
+ReconAI strictly distinguishes between:
+- **`ORIGINAL EVIDENCE`**: Unmodified raw bitstream copy.
+- **`DERIVED / RECOVERED ARTIFACT`**: Rescued payload or carved artifact.
+- **`RECONSTRUCTED / REPAIRED COPY`**: Derived file created via heuristic fragment matching or format repair.
+
+Original evidence files are opened strictly in read-only mode and are never overwritten or altered.
