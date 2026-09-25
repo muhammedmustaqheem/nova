@@ -512,8 +512,8 @@ else:
         st.markdown("---")
         nar_c1, nar_c2 = st.columns([3, 2])
         with nar_c1:
-            mode = st.segmented_control("Case narrative", ["Plain English", "Examiner detail"], default="Plain English")
-            st.markdown(narratives.get("expert_mode" if mode == "Examiner detail" else "simple_mode", "_No narrative generated._"))
+            mode = st.segmented_control("Case narrative", ["Executive Briefing", "Examiner Detail"], default="Executive Briefing")
+            st.markdown(narratives.get("expert_mode" if mode == "Examiner Detail" else "simple_mode", "_No narrative generated._"))
         with nar_c2:
             st.markdown("##### 🚨 Highest-priority evidence")
             st.caption("Priority = content sensitivity × integrity score")
@@ -633,7 +633,7 @@ else:
                     st.code("\n".join(hex_lines) or "(empty)", language="text")
                 expl = inspected.get("explanations", {})
                 if expl:
-                    with st.expander("Why this verdict? (plain English / examiner)"):
+                    with st.expander("Why this verdict? (Executive Briefing & Technical Analysis)"):
                         st.markdown(expl.get("simple", ""))
                         st.markdown("---")
                         st.markdown(expl.get("expert", ""))

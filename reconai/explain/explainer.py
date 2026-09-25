@@ -37,9 +37,9 @@ def generate_case_narrative(
     top_items = sorted(items, key=lambda x: x.get("priority_score", 0), reverse=True)[:3]
     top_names = ", ".join(f"'{i.get('friendly_title', i['filename'])}'" for i in top_items) if top_items else "None"
 
-    # --- 1. SIMPLE MODE NARRATIVE ---
+    # --- 1. EXECUTIVE BRIEFING NARRATIVE ---
     simple_narrative = (
-        f"### 📋 Executive Summary (Simple Plain English)\n\n"
+        f"### ⚡ Executive Summary & Forensic Intelligence Briefing\n\n"
         f"**What was analyzed:** We examined seized storage drive **`{fn}`** ({size_mb:.1f} MB).\n\n"
         f"**What we found:** ReconAI discovered **{total} files** across deleted file catalogs and hidden raw disk sectors.\n\n"
         f"**What can realistically be restored:**\n"
