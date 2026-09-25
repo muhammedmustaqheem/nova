@@ -356,15 +356,6 @@ When presenting ReconAI to judges, focus on these five core pillars:
 
 ---
 
-### 2026-09-26 — Forensic Command Center frontend
-- **New:** `frontend/index.html` (vanilla JS, no build) served by `reconai/server.py` (standard-library HTTP server, no new dependencies). Run `./venv/bin/python -m reconai.server` → http://127.0.0.1:8600. Streamlit `app.py` is unchanged and still works.
-- **API (`reconai/api.py`):** added `api_list_cases`, `api_get_case_view` (one JSON view-model; raw bytes and numpy stripped), `api_hex_dump` (absolute disk offsets), `api_copilot`. Routes: `GET /api/forensics/cases[/:id]`, `GET /files/:case/:item/{hex,download}`, `GET /report/:case?format=pdf|json`, `GET /audit?case=`, `POST /upload` (raw body + `X-Filename`), `POST /recover`, `POST /copilot`, `POST /demo`.
-- **Bug fix:** `api_recover_image` used `json.dumps` instead of `json.dump`, so every `recovery/*/hashes/evidence_seal.json` was 0 bytes (SHA-256 of that is `e3b0c442…`, the empty-input hash). Files from earlier runs remain empty.
-- UI: 5 pipeline views (Acquire, Evidence, Reconstruct, Intelligence, Report), always-visible restoration strip, min-join-confidence slider, custody + copilot side panel. All engine strings HTML-escaped (recovered filenames are untrusted).
-- Tests: all 4 modules → 24/24 pass.
-
----
-
 ## 🔄 Maintenance Protocol
 
 Whenever significant architectural changes, new feature implementations, file additions/deletions, or refactoring take place:
