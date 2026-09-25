@@ -35,38 +35,54 @@ st.set_page_config(
 # Forensic workbench styling (base colours come from .streamlit/config.toml dark theme)
 st.markdown("""
 <style>
-    .mono { font-family: 'SF Mono', Menlo, Consolas, monospace; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .mono { font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace; }
 
     .metric-card {
-        background: linear-gradient(135deg, #131B2E 0%, #1A243B 100%);
-        border: 1px solid #1E293B;
-        border-radius: 10px;
-        padding: 14px 18px;
+        background: linear-gradient(135deg, rgba(19, 27, 46, 0.85) 0%, rgba(26, 36, 59, 0.95) 100%);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 16px 20px;
         position: relative;
         height: 100%;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
     }
-    .metric-val { font-size: 28px; font-weight: 800; font-family: 'SF Mono', Monaco, monospace; }
-    .metric-lbl { font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em; }
-    .metric-sub { font-size: 12px; color: #94A3B8; margin-top: 4px; line-height: 1.4; }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(0, 242, 254, 0.35);
+        box-shadow: 0 8px 30px -4px rgba(0, 242, 254, 0.15);
+    }
+    .metric-val { font-size: 30px; font-weight: 800; font-family: 'JetBrains Mono', monospace; letter-spacing: -0.02em; }
+    .metric-lbl { font-size: 11px; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    .metric-sub { font-size: 12px; color: #94A3B8; margin-top: 6px; line-height: 1.45; }
 
     .badge {
-        display: inline-block; padding: 3px 9px; border-radius: 6px;
-        font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
-        text-transform: uppercase; font-family: 'SF Mono', monospace;
+        display: inline-block; padding: 4px 10px; border-radius: 6px;
+        font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+        text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+        transition: all 0.2s ease;
     }
-    .badge-intact { background-color: rgba(16,185,129,.2); color: #10B981; border: 1px solid #10B981; }
-    .badge-partial { background-color: rgba(245,158,11,.2); color: #F59E0B; border: 1px solid #F59E0B; }
-    .badge-corrupt { background-color: rgba(239,68,68,.2); color: #EF4444; border: 1px solid #EF4444; }
-    .badge-reassembled { background-color: rgba(0,242,254,.2); color: #00F2FE; border: 1px solid #00F2FE; }
-    .badge-fs { background-color: rgba(59,130,246,.2); color: #3B82F6; border: 1px solid #3B82F6; }
-    .badge-carve { background-color: rgba(168,85,247,.2); color: #A855F7; border: 1px solid #A855F7; }
-    .badge-derived { background-color: rgba(236,72,153,.2); color: #EC4899; border: 1px solid #EC4899; }
+    .badge:hover { transform: scale(1.04); }
+    .badge-intact { background: rgba(16,185,129,.15); color: #10B981; border: 1px solid rgba(16,185,129,.4); }
+    .badge-partial { background: rgba(245,158,11,.15); color: #F59E0B; border: 1px solid rgba(245,158,11,.4); }
+    .badge-corrupt { background: rgba(239,68,68,.15); color: #EF4444; border: 1px solid rgba(239,68,68,.4); }
+    .badge-reassembled { background: rgba(0,242,254,.15); color: #00F2FE; border: 1px solid rgba(0,242,254,.4); }
+    .badge-fs { background: rgba(59,130,246,.15); color: #3B82F6; border: 1px solid rgba(59,130,246,.4); }
+    .badge-carve { background: rgba(168,85,247,.15); color: #A855F7; border: 1px solid rgba(168,85,247,.4); }
+    .badge-derived { background: rgba(236,72,153,.15); color: #EC4899; border: 1px solid rgba(236,72,153,.4); }
 
     .recon-tooltip { position: relative; display: inline-block; cursor: help; }
     .recon-tooltip .recon-tooltiptext {
-        visibility: hidden; width: 260px; background-color: #0F172A; color: #F8FAFC;
+        visibility: hidden; width: 280px; background-color: #0F172A; color: #F8FAFC;
         text-align: left; border-radius: 8px; padding: 10px 14px; position: absolute;
-        z-index: 1000; bottom: 125%; left: 50%; margin-left: -130px; opacity: 0;
+        z-index: 1000; bottom: 125%; left: 50%; margin-left: -140px; opacity: 0;
         transition: opacity 0.2s; border: 1px solid #00F2FE; font-size: 11px;
         line-height: 1.45; text-transform: none; letter-spacing: normal; font-weight: normal;
         box-shadow: 0 10px 20px -3px rgba(0,0,0,.6);
@@ -74,14 +90,17 @@ st.markdown("""
     .recon-tooltip:hover .recon-tooltiptext { visibility: visible; opacity: 1; }
 
     .help-card {
-        background-color: #131D33; border-left: 4px solid #00F2FE; border-radius: 8px;
-        padding: 12px 16px; margin-bottom: 16px; font-size: 13px; color: #CBD5E1;
+        background: rgba(19, 29, 51, 0.75); border-left: 4px solid #00F2FE; border-radius: 8px;
+        padding: 14px 18px; margin-bottom: 16px; font-size: 13px; color: #CBD5E1;
     }
     .alert-card {
-        border-radius: 8px; padding: 12px 16px; margin-bottom: 10px;
-        font-size: 13px; line-height: 1.5; color: #E2E8F0;
+        border-radius: 10px; padding: 14px 18px; margin-bottom: 12px;
+        font-size: 13px; line-height: 1.55; color: #E2E8F0;
+        backdrop-filter: blur(8px);
+        transition: all 0.2s ease;
     }
-    .step-num { font-size: 12px; color: #00F2FE; font-weight: 700; letter-spacing: .08em; }
+    .alert-card:hover { transform: translateX(2px); }
+    .step-num { font-size: 11px; color: #00F2FE; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 </style>
 """, unsafe_allow_html=True)
 
