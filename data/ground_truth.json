@@ -1,6 +1,6 @@
 {
   "case_id": "RECONAI-HACKATHON-2026",
-  "created_at": "2026-09-25T13:46:54.614838Z",
+  "created_at": "2026-09-25T14:40:22.639484Z",
   "disk_size_bytes": 67108864,
   "files": [
     {
@@ -24,8 +24,8 @@
       "expected_quality_score": 100,
       "is_fragmented": false,
       "is_deleted": true,
-      "size_bytes": 350,
-      "sha256": "d9053f69a5daecee2d55c78f54fc6e3c30cfbb580041a975eff3b2a61a5fd8a6",
+      "size_bytes": 340,
+      "sha256": "2e4c46043722b6a351e3a89214daf323f55bba527f3de9eb4a08ed976767c6a4",
       "offset": 548864,
       "description": "Environment variable file containing live AWS and database credentials."
     },
@@ -87,7 +87,7 @@
       "is_fragmented": false,
       "is_deleted": true,
       "size_bytes": 345,
-      "sha256": "080c1bfc35741cd54b569b7fe1a0ed8fd28f85f2623421629a0a2c46eefac001",
+      "sha256": "b445d6563faf5a83ae1e2ff5b5b592d20f4d47fa4abb2576f10a32167eb3a061",
       "offset": 585728,
       "description": "Corrupted ZIP archive with damaged payload byte structure."
     },
@@ -177,5 +177,5 @@
       "pattern": "0xFF Solid Flash Erase"
     }
   ],
-  "disk_image_sha256": "0c104626f3d0b484f6e71aeab03cde07d5212e7ad2067c89d56bedbad9f905ff"
+  "disk_image_sha256": "bbb5e1d21b7f5bcdbfddc6df3dddeeaf5bc72395e55ca1cd2bf3022b752cd2e7"
 }
