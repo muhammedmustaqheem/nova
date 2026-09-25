@@ -1,6 +1,6 @@
 {
   "case_id": "RECONAI-HACKATHON-2026",
-  "created_at": "2026-09-25T14:40:22.639484Z",
+  "created_at": "2026-09-25T14:49:01.885382Z",
   "disk_size_bytes": 67108864,
   "files": [
     {
@@ -87,7 +87,7 @@
       "is_fragmented": false,
       "is_deleted": true,
       "size_bytes": 345,
-      "sha256": "b445d6563faf5a83ae1e2ff5b5b592d20f4d47fa4abb2576f10a32167eb3a061",
+      "sha256": "628322640c7824ca1f697446c9218b0354ffb8af603aa2b532396ccf445f0239",
       "offset": 585728,
       "description": "Corrupted ZIP archive with damaged payload byte structure."
     },
@@ -177,5 +177,5 @@
       "pattern": "0xFF Solid Flash Erase"
     }
   ],
-  "disk_image_sha256": "bbb5e1d21b7f5bcdbfddc6df3dddeeaf5bc72395e55ca1cd2bf3022b752cd2e7"
+  "disk_image_sha256": "89f4d1fa877f2c906814c2e7720610070f8866587cb852cf945547016fa00c13"
 }

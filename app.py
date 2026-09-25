@@ -763,7 +763,7 @@ else:
     # ----------------------------------------------------
     with tab2:
         st.markdown("### 📁 Recovered Evidence Catalog")
-        st.caption("Browse, inspect, and export all rescued evidence files:")
+        st.caption("Explore, inspect, and export recovered evidence organized by catchy threat categories:")
 
         # Threat Intelligence / Discovered IOCs Banner
         if iocs["records"]:
@@ -772,59 +772,85 @@ else:
                 df_iocs = pd.DataFrame(iocs["records"])
                 st.dataframe(df_iocs, use_container_width=True, hide_index=True)
 
-        # Explicit Tier Separation: Suspect Files vs System & OS Footprints
+        # ----------------------------------------------------
+        # 🎯 CATCHY CATEGORY HUB CARDS
+        # ----------------------------------------------------
+        st.markdown('<div style="font-size: 16px; font-weight: 700; color: #F8FAFC; margin-top: 10px; margin-bottom: 8px;">🎯 Category Explorer (Click to Filter)</div>', unsafe_allow_html=True)
+        
+        # Calculate category counts across all items
+        cat_counts = {}
+        for itm in items:
+            c = itm.get("category", "📄 Documents & Reports")
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+
+        cat_keys = list(cat_counts.keys())
+        cat_cols = st.columns(min(len(cat_keys), 6))
+        
+        # Session state for active category filter
+        if "active_cat_filter" not in st.session_state:
+            st.session_state.active_cat_filter = "ALL"
+
+        for idx, cat_name in enumerate(cat_keys[:6]):
+            with cat_cols[idx]:
+                cnt = cat_counts[cat_name]
+                is_selected = (st.session_state.active_cat_filter == cat_name)
+                border_color = "#00F2FE" if is_selected else "#1E293B"
+                bg_color = "linear-gradient(135deg, #1E293B 0%, #0F172A 100%)" if is_selected else "#131B2E"
+                
+                st.markdown(f"""
+                <div style="background: {bg_color}; border: 1.5px solid {border_color}; border-radius: 8px; padding: 10px 12px; text-align: center; margin-bottom: 8px;">
+                    <div style="font-size: 13px; font-weight: 700; color: #F8FAFC; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{cat_name}</div>
+                    <div style="font-size: 20px; font-weight: 800; color: #00F2FE; font-family: monospace; margin: 2px 0;">{cnt} <span style="font-size: 11px; color: #94A3B8; font-weight: normal;">file(s)</span></div>
+                </div>
+                """, unsafe_allow_html=True)
+                if st.button(f"Filter: {cat_name.split()[0]}", key=f"cat_btn_{idx}", use_container_width=True):
+                    st.session_state.active_cat_filter = cat_name if not is_selected else "ALL"
+                    st.rerun()
+
+        st.markdown("---")
+
+        # Tier & Search Filter Controls Row
+        ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([2, 2, 1])
+
         user_items = [i for i in items if i.get("is_user_file")]
         sys_items = [i for i in items if not i.get("is_user_file")]
 
-        # Match initial selection to sidebar Extraction Scope
-        cur_scope = st.session_state.get("recovery_scope", "")
-        default_scope_idx = 0
-        if "Suspect Files" in cur_scope:
-            default_scope_idx = 0
-        elif "System & OS" in cur_scope:
-            default_scope_idx = 1
-
-        scope_selection = st.radio(
-            "Evidence Tier (Do Not Merge):",
-            [f"👤 Suspect Files ({len(user_items)})", f"🖥️ System & OS Footprints ({len(sys_items)})", f"⚖️ Complete Case ({len(items)})"],
-            index=default_scope_idx,
-            horizontal=True,
-            help="⚖️ Partition Control: Enforces forensic tiering to prevent mixing suspect-created evidence with automated OS machine logs."
-        )
+        with ctrl_col1:
+            scope_selection = st.radio(
+                "Evidence Tier:",
+                [f"👤 Suspect Files ({len(user_items)})", f"🖥️ System & OS ({len(sys_items)})", f"⚖️ Complete Case ({len(items)})"],
+                index=0,
+                horizontal=True
+            )
 
         if "Suspect Files" in scope_selection:
             scope_items = user_items
-            st.info("👤 **Displaying Suspect Files**: High-value contraband created, accessed, or deleted by the suspect (Financial reports, credentials, photos).")
         elif "System & OS" in scope_selection:
             scope_items = sys_items
-            st.info("🖥️ **Displaying System & OS Footprints**: Operating system logs, backup archives, and machine activity.")
         else:
             scope_items = items
 
-        # Filters row with Non-Technical Tooltips
+        with ctrl_col2:
+            search_query = st.text_input("🔍 Search Evidence:", placeholder="Search title, filename, SHA-256 or keyword...")
+
+        with ctrl_col3:
+            view_mode = st.radio("Display Mode:", ["🎴 Cards Grid", "📊 Table View"], index=0, horizontal=True)
+
+        # Filters Row
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1:
             all_cats = ["ALL"] + sorted(list(set(i.get("category", "") for i in scope_items)))
-            selected_cat = st.selectbox(
-                "Filter Category:",
-                all_cats,
-                help="🎯 Category Filter: Filter artifacts by forensic domain (Credentials & Secrets, Financial & Invoices, Communications)."
-            )
-        with f_col2:
-            all_statuses = ["ALL", "INTACT", "PARTIAL", "CORRUPTED"]
-            selected_status = st.selectbox(
-                "Filter Integrity Status:",
-                all_statuses,
-                help="🩺 Health Filter: Filter artifacts based on structural validation status (Intact, Partial, or Corrupted)."
-            )
-        with f_col3:
-            all_sources = ["ALL", "filesystem_undelete", "signature_carving", "fragment_reassembly"]
-            selected_source = st.selectbox(
-                "Filter Recovery Method:",
-                all_sources,
-                help="⚙️ Recovery Pipeline Filter: Isolate files by extraction source (Filesystem Table, Signature Carver, or AI Reassembler)."
-            )
+            default_cat_idx = all_cats.index(st.session_state.active_cat_filter) if st.session_state.active_cat_filter in all_cats else 0
+            selected_cat = st.selectbox("Category Filter:", all_cats, index=default_cat_idx)
+            st.session_state.active_cat_filter = selected_cat
 
+        with f_col2:
+            selected_status = st.selectbox("Integrity Health Filter:", ["ALL", "INTACT", "PARTIAL", "CORRUPTED"])
+
+        with f_col3:
+            selected_source = st.selectbox("Recovery Source Filter:", ["ALL", "filesystem_undelete", "signature_carving", "fragment_reassembly"])
+
+        # Apply Filters
         filtered_items = scope_items
         if selected_cat != "ALL":
             filtered_items = [i for i in filtered_items if i.get("category") == selected_cat]
@@ -832,40 +858,105 @@ else:
             filtered_items = [i for i in filtered_items if i.get("integrity_status") == selected_status]
         if selected_source != "ALL":
             filtered_items = [i for i in filtered_items if i.get("source") == selected_source]
+        if search_query.strip():
+            sq = search_query.strip().lower()
+            filtered_items = [
+                i for i in filtered_items
+                if sq in i.get("friendly_title", "").lower() or sq in i.get("filename", "").lower() or sq in i.get("use_case", "").lower() or sq in i.get("sha256", "").lower()
+            ]
 
-        st.caption(f"Showing **{len(filtered_items)}** of **{len(scope_items)}** artifacts in this tier (sorted by Priority Score):")
+        st.caption(f"Showing **{len(filtered_items)}** of **{len(scope_items)}** evidence items in this tier:")
 
-        # Table Display
-        table_rows = []
-        for itm in filtered_items:
-            table_rows.append({
-                "Title": itm.get("friendly_title", itm["filename"]),
-                "Filename": itm["filename"],
-                "Investigative Clue / Use Case": itm.get("use_case", ""),
-                "Tier": "👤 User Evidence" if itm.get("is_user_file") else "🖥️ System / OS",
-                "Category": itm["category"],
-                "Status": itm["integrity_status"],
-                "Quality (%)": f"{itm['integrity_score']:.0f}%",
-                "Confidence": f"{itm.get('confidence_score', 100):.1f}%",
-                "Priority Score": itm["priority_score"],
-                "Source": itm["source"].replace('_', ' ').title(),
-                "Offset": f"0x{itm.get('offset', 0):06X}",
-                "Size (Bytes)": itm.get("size_bytes", 0)
-            })
+        # ----------------------------------------------------
+        # 🎴 VIEW MODE 1: VISUAL EVIDENCE CARDS GRID
+        # ----------------------------------------------------
+        if view_mode == "🎴 Cards Grid":
+            if not filtered_items:
+                st.info("No files match the selected filter criteria.")
+            else:
+                card_cols = st.columns(2)
+                for idx, itm in enumerate(filtered_items):
+                    col_target = card_cols[idx % 2]
+                    with col_target:
+                        f_title = itm.get("friendly_title", itm["filename"])
+                        u_case = itm.get("use_case", "Recovered forensic artifact.")
+                        cat_label = itm.get("category", "📄 Documents & Reports")
+                        
+                        st.markdown(f"""
+                        <div style="background: linear-gradient(135deg, #131B2E 0%, #0F172A 100%); border: 1px solid #1E293B; border-left: 5px solid #00F2FE; border-radius: 10px; padding: 16px; margin-bottom: 14px; position: relative;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                                <div style="font-size: 15px; font-weight: 700; color: #F8FAFC;">{f_title}</div>
+                                <div>{get_status_badge(itm['integrity_status'])}</div>
+                            </div>
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px;">
+                                <span style="background-color: rgba(0, 242, 254, 0.15); color: #00F2FE; border: 1px solid #00F2FE; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px;">{cat_label}</span>
+                                {get_source_badge(itm['source'])}
+                                <span style="font-size: 11px; color: #94A3B8; font-family: monospace;">Offset: 0x{itm.get('offset', 0):06X} ({itm.get('size_bytes', 0)} B)</span>
+                            </div>
+                            <div style="background-color: #090D16; border: 1px solid #1E293B; border-radius: 6px; padding: 10px; font-size: 12px; color: #38BDF8; margin-bottom: 10px; line-height: 1.4;">
+                                🎯 <strong>Investigative Clue:</strong> {u_case}
+                            </div>
+                            <div style="font-size: 11px; color: #64748B; font-family: monospace; word-break: break-all;">
+                                SHA-256: {itm.get('sha256', '')[:32]}...
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        btn_c1, btn_c2 = st.columns(2)
+                        with btn_c1:
+                            st.download_button(
+                                label=f"⬇️ Download {itm['filename']}",
+                                data=itm.get("data", b""),
+                                file_name=itm["filename"],
+                                mime="application/octet-stream",
+                                key=f"dl_card_{idx}_{itm['filename']}",
+                                use_container_width=True
+                            )
+                        with btn_c2:
+                            if st.button(f"🔬 Inspect Payload", key=f"insp_card_{idx}_{itm['filename']}", use_container_width=True):
+                                st.session_state.inspected_item_id = itm["item_id"]
+                                st.rerun()
 
-        df_display = pd.DataFrame(table_rows)
-        st.dataframe(df_display, use_container_width=True, hide_index=True)
+        # ----------------------------------------------------
+        # 📊 VIEW MODE 2: DETAILED FORENSIC TABLE
+        # ----------------------------------------------------
+        else:
+            table_rows = []
+            for itm in filtered_items:
+                table_rows.append({
+                    "Title": itm.get("friendly_title", itm["filename"]),
+                    "Filename": itm["filename"],
+                    "Category": itm["category"],
+                    "Status": itm["integrity_status"],
+                    "Quality (%)": f"{itm['integrity_score']:.0f}%",
+                    "Confidence": f"{itm.get('confidence_score', 100):.1f}%",
+                    "Priority": itm["priority_score"],
+                    "Source": itm["source"].replace('_', ' ').title(),
+                    "Offset": f"0x{itm.get('offset', 0):06X}",
+                    "Size (Bytes)": itm.get("size_bytes", 0),
+                    "SHA-256": itm.get("sha256", "")[:16] + "..."
+                })
+            df_display = pd.DataFrame(table_rows)
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
 
         st.markdown("---")
         st.markdown("### 🔬 Deep Artifact Inspector")
-        st.caption("Examine individual file payloads, raw hex dumps, and fragment history:")
+        st.caption("Examine payload data, rendered previews, raw hex byte dumps, and forensic hashes:")
 
-        item_names = [f"{i.get('friendly_title', i['filename'])}  —  [{i['filename']}]" for i in filtered_items]
+        item_names = [f"{i.get('friendly_title', i['filename'])} — [{i['filename']}]" for i in filtered_items]
         if item_names:
+            # Set selection if clicked from card
+            selected_idx = 0
+            if "inspected_item_id" in st.session_state:
+                for idx, itm in enumerate(filtered_items):
+                    if itm["item_id"] == st.session_state.inspected_item_id:
+                        selected_idx = idx
+                        break
+
             inspect_choice = st.selectbox(
                 "Select artifact to examine payload & metadata:",
                 item_names,
-                help="🔬 Artifact Selection: Choose a recovered item to inspect decoded text, rendered media, hex byte streams, and forensic hashes."
+                index=selected_idx
             )
             selected_idx = item_names.index(inspect_choice)
             inspected = filtered_items[selected_idx]
@@ -875,7 +966,6 @@ else:
             insp_use_case = inspected.get("use_case", "Recovered forensic file.")
             insp_note = inspected.get("naming_note", f"Filename: {insp_filename}")
 
-            # Non-technical explainer banner for the selected artifact
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #131B2E 0%, #0F172A 100%); border: 1px solid #1E293B; border-left: 5px solid #00F2FE; border-radius: 8px; padding: 14px 18px; margin-bottom: 18px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
@@ -902,7 +992,6 @@ else:
                 ext = inspected.get("extension", "").lower()
                 data = inspected.get("data", b"")
 
-                # Image Preview
                 if ext in [".jpg", ".jpeg", ".png"] and len(data) > 0:
                     try:
                         img = Image.open(io.BytesIO(data))
@@ -910,14 +999,11 @@ else:
                     except Exception as e:
                         st.warning(f"Could not render image preview: {e}")
 
-                # Text / Extracted Preview
                 st.markdown("**Decoded Content Stream:**")
                 preview_text = inspected.get("content_preview", "")
                 st.code(preview_text if preview_text else "No printable text stream detected.", language="text")
 
-                # Hex Dump Preview
                 with st.expander("🔍 View Raw Hex Dump (First 256 bytes)"):
-                    st.caption("🔍 Low-Level Byte Stream: Hexadecimal and ASCII byte representations read directly from the physical platter:")
                     hex_lines = []
                     for i in range(0, min(256, len(data)), 16):
                         chunk = data[i:i+16]
@@ -929,6 +1015,7 @@ else:
             with ins_c2:
                 st.markdown("#### Forensic Metadata")
                 st.markdown(f"**Item ID:** `{inspected['item_id']}`")
+                st.markdown(f"**Category:** `{inspected.get('category', 'Uncategorized')}`")
                 st.markdown(f"**Status:** {get_status_badge(inspected['integrity_status'])}", unsafe_allow_html=True)
                 st.markdown(f"**Quality Score:** `{inspected['integrity_score']}%`")
                 st.markdown(f"**Assembly Confidence:** `{inspected.get('confidence_score', 100)}%`")
@@ -942,21 +1029,14 @@ else:
                 if details:
                     st.markdown(f"**Validator Verification:** `{details.get('details', 'N/A')}`")
 
-                # Lineage if reassembled
-                if inspected.get("is_fragmented") and inspected.get("fragments_linked"):
-                    st.markdown("**Fragment Lineage:**")
-                    for fl in inspected["fragments_linked"]:
-                        st.markdown(f"- `{fl.get('type')}` fragment @ `0x{fl.get('offset', 0):X}` ({fl.get('size')} B)")
-
-                # Download button with tooltip
                 st.download_button(
                     label=f"⬇️ Download {inspected['filename']}",
                     data=data,
                     file_name=inspected['filename'],
                     mime="application/octet-stream",
-                    use_container_width=True,
-                    help="💾 Evidence Export: Download the recovered binary payload to local disk for independent validation."
+                    use_container_width=True
                 )
+
 
     # ----------------------------------------------------
     # TAB 3: RELATIONSHIP GRAPH
@@ -1151,53 +1231,31 @@ else:
             )
 
         st.markdown("---")
-        
-        # Partitioned Report Sections (Do Not Merge)
-        user_rep_items = [i for i in items if i.get("is_user_file")]
-        sys_rep_items = [i for i in items if not i.get("is_user_file")]
+        st.markdown("#### 📂 Classified Evidence Inventory by Category")
+        st.caption("All classified evidence artifacts grouped by threat domain:")
 
-        st.markdown(f"#### 👤 Section 1: User Evidence Artifacts ({len(user_rep_items)} files)")
-        st.caption("Confidential files created, accessed, or owned by the suspect:")
-        st.dataframe(
-            pd.DataFrame([
-                {
-                    "Title": i.get("friendly_title", i["filename"]),
-                    "Filename": i["filename"],
-                    "Investigative Use Case": i.get("use_case", ""),
-                    "Category": i["category"],
-                    "Status": i["integrity_status"],
-                    "Quality": f"{i['integrity_score']:.0f}%",
-                    "Confidence": f"{i.get('confidence_score', 100):.1f}%",
-                    "Priority": i["priority_score"],
-                    "Source": i["source"],
-                    "Offset": f"0x{i.get('offset', 0):06X}",
-                    "SHA256": i.get("sha256")[:20] + "..."
-                }
-                for i in user_rep_items
-            ]),
-            use_container_width=True,
-            hide_index=True
-        )
+        # Group items by category
+        cat_grouped = {}
+        for i in items:
+            cat_name = i.get("category", "📄 Documents & Reports")
+            cat_grouped.setdefault(cat_name, []).append(i)
 
-        st.markdown(f"#### 🖥️ Section 2: Operating System & Filesystem Artifacts ({len(sys_rep_items)} files)")
-        st.caption("Low-level OS logs, system archives, and filesystem metadata:")
-        st.dataframe(
-            pd.DataFrame([
-                {
-                    "Title": i.get("friendly_title", i["filename"]),
-                    "Filename": i["filename"],
-                    "Investigative Use Case": i.get("use_case", ""),
-                    "Category": i["category"],
-                    "Status": i["integrity_status"],
-                    "Quality": f"{i['integrity_score']:.0f}%",
-                    "Confidence": f"{i.get('confidence_score', 100):.1f}%",
-                    "Priority": i["priority_score"],
-                    "Source": i["source"],
-                    "Offset": f"0x{i.get('offset', 0):06X}",
-                    "SHA256": i.get("sha256")[:20] + "..."
-                }
-                for i in sys_rep_items
-            ]),
-            use_container_width=True,
-            hide_index=True
-        )
+        for cat_name, cat_items in cat_grouped.items():
+            with st.expander(f"{cat_name} ({len(cat_items)} file(s))", expanded=True):
+                df_cat_rep = pd.DataFrame([
+                    {
+                        "Title": i.get("friendly_title", i["filename"]),
+                        "Technical Filename": i["filename"],
+                        "Investigative Clue": i.get("use_case", ""),
+                        "Tier": "👤 User Evidence" if i.get("is_user_file") else "🖥️ System / OS",
+                        "Status": i["integrity_status"],
+                        "Quality": f"{i['integrity_score']:.0f}%",
+                        "Confidence": f"{i.get('confidence_score', 100):.1f}%",
+                        "Priority": i["priority_score"],
+                        "Offset": f"0x{i.get('offset', 0):06X}",
+                        "SHA-256": i.get("sha256", "")[:24] + "..."
+                    }
+                    for i in cat_items
+                ])
+                st.dataframe(df_cat_rep, use_container_width=True, hide_index=True)
+

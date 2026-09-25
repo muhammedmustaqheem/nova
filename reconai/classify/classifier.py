@@ -18,21 +18,32 @@ import re
 import os
 from typing import Dict, Any, Tuple, List
 
-# 9 Standard Content Classes and their Forensic Sensitivity Weights
+# Standard Catchy Content Classes and their Forensic Sensitivity Weights
 CLASS_WEIGHTS = {
-    "Credentials & Keys": 1.00,
-    "Financial": 0.95,
-    "Personal Data (PII)": 0.90,
-    "Document": 0.80,
-    "Encrypted Blobs": 0.75,
-    "Logs": 0.70,
-    "Image": 0.65,
-    "Source Code": 0.60,
-    "Executables": 0.50
+    "🔑 Credentials & Access Keys": 1.00,
+    "💰 Financial & Wire Transfers": 0.95,
+    "🪪 Identity & Personal Data": 0.90,
+    "📄 Documents & Reports": 0.80,
+    "🚨 Ransomware & Encrypted Blobs": 0.75,
+    "⚙️ System & Attack Logs": 0.70,
+    "🖼️ Photos & Media Evidence": 0.65,
+    "💻 Source Code & Scripts": 0.60,
+    "⚡ Executables & Binaries": 0.50
 }
 
-# Alias for backwards compatibility
+# Backwards compatibility aliases
+CLASS_WEIGHTS["Credentials & Keys"] = 1.00
+CLASS_WEIGHTS["Financial"] = 0.95
+CLASS_WEIGHTS["Personal Data (PII)"] = 0.90
+CLASS_WEIGHTS["Document"] = 0.80
+CLASS_WEIGHTS["Encrypted Blobs"] = 0.75
+CLASS_WEIGHTS["Logs"] = 0.70
+CLASS_WEIGHTS["Image"] = 0.65
+CLASS_WEIGHTS["Source Code"] = 0.60
+CLASS_WEIGHTS["Executables"] = 0.50
+
 CATEGORY_WEIGHTS = CLASS_WEIGHTS
+
 
 # Regex Patterns for Deep Payload Inspection
 CREDENTIAL_PATTERNS = [
@@ -127,42 +138,43 @@ def classify_content(item: Dict[str, Any]) -> str:
 
     # 1. Credentials & Keys
     if any(p.search(preview) for p in CREDENTIAL_PATTERNS) or ext in [".env", ".key", ".pem"] or "cred" in filename or "pass" in filename:
-        return "Credentials & Keys"
+        return "🔑 Credentials & Access Keys"
 
     # 2. Financial
     if any(p.search(preview) for p in FINANCIAL_PATTERNS) or "finance" in filename or "invoice" in filename or "audit" in filename:
-        return "Financial"
+        return "💰 Financial & Wire Transfers"
 
     # 3. Personal Data (PII)
     if any(p.search(preview) for p in PII_PATTERNS) or "passport" in filename or "pii" in filename:
-        return "Personal Data (PII)"
+        return "🪪 Identity & Personal Data"
 
     # 4. Logs
     if any(p.search(preview) for p in LOG_PATTERNS) or ext in [".log"] or "auth" in filename or "syslog" in filename:
-        return "Logs"
+        return "⚙️ System & Attack Logs"
 
     # 5. Source Code
     if ext in [".py", ".sh", ".sql", ".js", ".c", ".cpp", ".java", ".html", ".css"] or any(p.search(preview) for p in SOURCE_CODE_PATTERNS):
-        return "Source Code"
+        return "💻 Source Code & Scripts"
 
     # 6. Executables
     if ext in [".exe", ".dll", ".so", ".bin"] or data.startswith(b"MZ") or data.startswith(b"\x7fELF"):
-        return "Executables"
+        return "⚡ Executables & Binaries"
 
     # 7. Images
     if ext in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"]:
-        return "Image"
+        return "🖼️ Photos & Media Evidence"
 
     # 8. Documents
     if ext in [".pdf", ".docx", ".xlsx", ".pptx", ".txt", ".md", ".rtf"] or "doc" in filename:
-        return "Document"
+        return "📄 Documents & Reports"
 
     # 9. Encrypted Blobs
     ent = float(item.get("entropy", 0.0))
     if ent >= 7.85:
-        return "Encrypted Blobs"
+        return "🚨 Ransomware & Encrypted Blobs"
 
-    return "Document"
+    return "📄 Documents & Reports"
+
 
 def compute_priority(
     item: Dict[str, Any],
