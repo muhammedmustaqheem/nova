@@ -803,35 +803,114 @@
             <div class="pipeline-stage hidden space-y-6" id="stage-graph">
               <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
-                  <h3 class="text-2xl font-bold text-on-surface">Evidence Intelligence & Relationship Summary</h3>
-                  <p class="text-sm text-on-surface-variant mt-1">Plain-language breakdown of recovered credentials, financial movements, network traces, and linked evidence files for court and stakeholder review.</p>
+                  <h3 class="text-2xl font-bold text-on-surface">Evidence Relationship &amp; Intelligence Graph</h3>
+                  <p class="text-sm text-on-surface-variant mt-1">Interactive visual network diagram mapping recovered files to extracted credentials, financial wallets, and network traces.</p>
                 </div>
-                <!-- Interactive Filter Tabs (Restrained, low-contrast courtroom style) -->
+                <!-- Interactive Low-Contrast Filter Tabs -->
                 <div class="flex flex-wrap gap-2" id="graph-filter-pills">
-                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-xs border border-outline-variant/60 shadow-sm transition-colors" data-filter="ALL" onclick="filterGraphNodes('ALL')">All Evidence</button>
-                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="FILES" onclick="filterGraphNodes('FILES')">Recovered Files</button>
-                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="CREDENTIALS" onclick="filterGraphNodes('CREDENTIALS')">Leaked Passwords & Access Keys</button>
+                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface font-semibold text-xs border border-outline-variant/60 shadow-sm transition-colors" data-filter="ALL" onclick="filterGraphNodes('ALL')">All Evidence Nodes</button>
+                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="FILES" onclick="filterGraphNodes('FILES')">Files</button>
+                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="CREDENTIALS" onclick="filterGraphNodes('CREDENTIALS')">Passwords &amp; Keys</button>
                   <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="FINANCIAL" onclick="filterGraphNodes('FINANCIAL')">Money Movement</button>
-                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="NETWORK" onclick="filterGraphNodes('NETWORK')">Suspicious Network Activity</button>
+                  <button class="graph-pill-btn px-4 py-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface font-semibold text-xs border border-outline-variant/30 transition-colors" data-filter="NETWORK" onclick="filterGraphNodes('NETWORK')">Network Activity</button>
                 </div>
               </div>
 
-              <!-- Main Canvas Container -->
-              <div class="relative bg-surface-container-low p-6 rounded-2xl border border-outline-variant/30 min-h-[460px] flex flex-col items-center justify-start overflow-hidden shadow-lg space-y-5">
-
-                <!-- Hover / Selection Summary Header Bar -->
-                <div class="w-full p-4 bg-surface-container-high/60 rounded-xl border border-outline-variant/40 flex flex-col md:flex-row items-start md:items-center justify-between text-xs gap-2" id="graph-hover-info">
-                  <div class="flex items-center gap-3">
-                    <span class="material-symbols-outlined text-on-surface-variant text-[22px]">gavel</span>
-                    <span class="text-on-surface font-medium text-xs" id="graph-hover-title">Select or hover over any item to review source artifact verification and relationship vectors.</span>
+              <!-- Main Graphical Diagram Canvas Container -->
+              <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                
+                <!-- Left Visual Network Graph Diagram Canvas (8 cols) -->
+                <div class="lg:col-span-8 bg-surface-container-low p-6 rounded-2xl border border-outline-variant/30 min-h-[520px] relative overflow-hidden shadow-lg flex flex-col justify-between">
+                  <!-- Graph Top Status / Legend Bar -->
+                  <div class="flex items-center justify-between gap-4 pb-4 border-b border-outline-variant/20 text-xs font-sans">
+                    <div class="flex items-center gap-2">
+                      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+                      <span class="text-on-surface font-semibold">Evidence Network Diagram</span>
+                      <span class="text-on-surface-variant" id="graph-node-count">(9 Connected Nodes)</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-[11px] text-on-surface-variant">
+                      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-400"></span>Files</span>
+                      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-400"></span>Credentials</span>
+                      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>Money</span>
+                      <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400"></span>Network</span>
+                    </div>
                   </div>
-                  <div class="px-3 py-1 bg-surface-container-highest rounded-md text-on-surface font-semibold text-xs border border-outline-variant/30" id="graph-node-count">0 Verified Evidence Items</div>
+
+                  <!-- SVG Connections & Interactive Node Diagram Box -->
+                  <div class="relative w-full h-[440px] my-2 overflow-hidden flex items-center justify-center bg-surface-container-lowest/40 rounded-xl border border-outline-variant/20 shadow-inner" id="graph-canvas-container">
+                    <!-- Dynamic SVG lines layer -->
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none z-0" id="graph-svg-lines" xmlns="http://www.w3.org/2000/svg">
+                      <!-- Rendered by renderGraphNodes() -->
+                    </svg>
+
+                    <!-- Dynamic HTML Node Bubbles Layer -->
+                    <div class="relative z-10 w-full h-full pointer-events-auto" id="evidence-graph-nodes">
+                      <!-- Rendered by renderGraphNodes() -->
+                    </div>
+                  </div>
+
+                  <!-- Instruction Footer -->
+                  <div class="pt-3 border-t border-outline-variant/20 text-xs text-on-surface-variant flex items-center justify-between font-sans">
+                    <span>💡 Click any node on the graph diagram to inspect detailed verification and raw technical strings.</span>
+                    <span class="text-primary hover:underline cursor-pointer font-semibold" onclick="filterGraphNodes('ALL')">Reset Graph View</span>
+                  </div>
                 </div>
 
-                <!-- Dynamic Evidence Cards Grid -->
-                <div class="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5 w-full" id="evidence-graph-nodes">
-                  <!-- Rendered dynamically by renderGraphNodes() -->
+                <!-- Right Side Node Detail Inspector Drawer (4 cols) -->
+                <div class="lg:col-span-4 bg-surface-container p-6 rounded-2xl border border-outline-variant/30 shadow-lg space-y-4" id="graph-node-inspector">
+                  <div class="flex items-center justify-between pb-3 border-b border-outline-variant/20">
+                    <div class="flex items-center gap-2">
+                      <span class="material-symbols-outlined text-primary text-[22px]">info</span>
+                      <h4 class="text-sm font-bold text-on-surface font-sans">Entity Verification Drawer</h4>
+                    </div>
+                    <span class="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border bg-red-500/15 text-red-400 border-red-500/30" id="drawer-severity">CRITICAL</span>
+                  </div>
+
+                  <div class="space-y-4 font-sans">
+                    <!-- Category & Title -->
+                    <div>
+                      <div class="text-[11px] uppercase font-semibold text-on-surface-variant/80 tracking-wider flex items-center gap-1.5" id="drawer-category-row">
+                        <span class="material-symbols-outlined text-[16px] text-primary" id="drawer-icon">vpn_key</span>
+                        <span id="drawer-category">Leaked Passwords &amp; Access Keys</span>
+                      </div>
+                      <h3 class="text-sm font-bold text-on-surface mt-1.5 leading-snug" id="drawer-headline">
+                        Select a node from the network graph to inspect evidence vectors.
+                      </h3>
+                    </div>
+
+                    <!-- Technical Monospace Raw Value Box -->
+                    <div class="bg-surface-container-highest/60 rounded-xl p-3.5 border border-outline-variant/20 space-y-1.5">
+                      <div class="text-[10px] uppercase font-semibold tracking-wider text-on-surface-variant/80">Raw Technical Value</div>
+                      <div class="flex flex-col gap-1.5">
+                        <code class="text-xs font-mono text-on-surface break-all" id="drawer-raw-value">Select node...</code>
+                        <button type="button" class="text-[11px] font-medium text-primary hover:underline self-start hidden" id="drawer-reveal-btn" data-state="truncated" onclick="toggleDrawerRevealValue(this)">Reveal Full Value</button>
+                      </div>
+                    </div>
+
+                    <!-- Source File & Recoverability Status -->
+                    <div class="space-y-2 pt-2 border-t border-outline-variant/20 text-xs text-on-surface-variant">
+                      <div class="flex items-center justify-between">
+                        <span>Source Artifact:</span>
+                        <strong class="text-on-surface font-mono font-normal" id="drawer-source">_REDS.ENV</strong>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span>Verification Status:</span>
+                        <strong class="text-emerald-400 font-normal" id="drawer-status">Fully Recoverable</strong>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span>Relationship Vector:</span>
+                        <strong class="text-on-surface font-normal" id="drawer-relationship">Extracted from file</strong>
+                      </div>
+                    </div>
+
+                    <!-- Action Button -->
+                    <button type="button" onclick="investigateDrawerEntityWithCopilot()" class="w-full py-2.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+                      <span class="material-symbols-outlined text-[16px]">psychology</span>
+                      <span>Ask Copilot About This Entity</span>
+                    </button>
+                  </div>
                 </div>
+
               </div>
             </div>
 
@@ -1654,6 +1733,102 @@
       return nodes;
     }
 
+    function toggleDrawerRevealValue(btn) {
+      const parent = btn.previousElementSibling;
+      if (!parent) return;
+      const isTruncated = btn.getAttribute('data-state') === 'truncated';
+      const fullVal = btn.getAttribute('data-full') || '';
+      const truncVal = btn.getAttribute('data-trunc') || '';
+      if (isTruncated) {
+        parent.textContent = fullVal;
+        btn.textContent = 'Hide Full Value';
+        btn.setAttribute('data-state', 'full');
+      } else {
+        parent.textContent = truncVal;
+        btn.textContent = 'Reveal Full Value';
+        btn.setAttribute('data-state', 'truncated');
+      }
+    }
+
+    function investigateDrawerEntityWithCopilot() {
+      const headline = document.getElementById('drawer-headline')?.textContent || '';
+      const rawVal = document.getElementById('drawer-raw-value')?.textContent || '';
+      switchTab('copilot');
+      const input = document.getElementById('copilot-input');
+      if (input) {
+        input.value = `Explain the forensic evidence significance of this entity: "${headline}" (Raw Value: ${rawVal})`;
+      }
+    }
+
+    let activeSelectedNodeId = null;
+
+    function selectGraphNode(nodeId) {
+      activeSelectedNodeId = nodeId;
+      const allNodes = buildGraphNodes();
+      const node = allNodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // Update Side Drawer Inspector
+      const headlineEl = document.getElementById('drawer-headline');
+      if (headlineEl) headlineEl.textContent = node.headline;
+
+      const categoryEl = document.getElementById('drawer-category');
+      if (categoryEl) categoryEl.textContent = node.categoryLabel;
+
+      const iconEl = document.getElementById('drawer-icon');
+      if (iconEl) iconEl.textContent = node.icon;
+
+      const sevEl = document.getElementById('drawer-severity');
+      if (sevEl) {
+        sevEl.textContent = node.severity;
+        sevEl.className = `px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+          node.severity === 'CRITICAL' ? 'bg-red-500/15 text-red-400 border-red-500/30' :
+          node.severity === 'HIGH' ? 'bg-amber-500/15 text-amber-400 border-amber-500/30' :
+          'bg-blue-500/15 text-blue-400 border-blue-500/30'
+        }`;
+      }
+
+      const rawVal = node.rawValue || '';
+      const maxLen = 42;
+      const isLong = rawVal.length > maxLen;
+      const truncVal = isLong ? rawVal.substring(0, maxLen) + '...' : rawVal;
+
+      const rawValEl = document.getElementById('drawer-raw-value');
+      if (rawValEl) rawValEl.textContent = truncVal;
+
+      const revealBtn = document.getElementById('drawer-reveal-btn');
+      if (revealBtn) {
+        if (isLong) {
+          revealBtn.classList.remove('hidden');
+          revealBtn.setAttribute('data-full', rawVal);
+          revealBtn.setAttribute('data-trunc', truncVal);
+          revealBtn.setAttribute('data-state', 'truncated');
+          revealBtn.textContent = 'Reveal Full Value';
+        } else {
+          revealBtn.classList.add('hidden');
+        }
+      }
+
+      const sourceEl = document.getElementById('drawer-source');
+      if (sourceEl) sourceEl.textContent = node.sourceFile;
+
+      const statusEl = document.getElementById('drawer-status');
+      if (statusEl) statusEl.textContent = node.recoverabilityStatus;
+
+      const relEl = document.getElementById('drawer-relationship');
+      if (relEl) relEl.textContent = node.relationship;
+
+      // Highlight active node chip in DOM
+      document.querySelectorAll('.graph-node-chip').forEach(chip => {
+        if (chip.getAttribute('data-node-id') === nodeId) {
+          chip.classList.add('border-primary', 'shadow-[0_0_20px_rgba(0,229,255,0.4)]', 'scale-105', 'bg-surface-container-highest');
+          chip.classList.remove('opacity-40');
+        } else {
+          chip.classList.remove('border-primary', 'shadow-[0_0_20px_rgba(0,229,255,0.4)]', 'scale-105', 'bg-surface-container-highest');
+        }
+      });
+    }
+
     function filterGraphNodes(filterType) {
       currentGraphFilter = filterType;
       document.querySelectorAll('.graph-pill-btn').forEach(btn => {
@@ -1668,105 +1843,108 @@
     }
 
     function renderGraphNodes(filterType) {
-      const container = document.getElementById('evidence-graph-nodes');
-      if (!container) return;
-      container.innerHTML = '';
+      const nodeContainer = document.getElementById('evidence-graph-nodes');
+      const svgContainer = document.getElementById('graph-svg-lines');
+      if (!nodeContainer || !svgContainer) return;
+
+      nodeContainer.innerHTML = '';
+      svgContainer.innerHTML = '';
 
       const allNodes = buildGraphNodes();
-      const list = filterType === 'ALL' ? allNodes : allNodes.filter(n => n.type === filterType);
-
       const countLabel = document.getElementById('graph-node-count');
       if (countLabel) {
-        const filterNames = {
-          'ALL': 'All Categories',
-          'FILES': 'Recovered Files',
-          'CREDENTIALS': 'Leaked Passwords & Access Keys',
-          'FINANCIAL': 'Money Movement',
-          'NETWORK': 'Suspicious Network Activity'
-        };
-        countLabel.textContent = `${list.length} Verified Evidence Items (${filterNames[filterType] || filterType})`;
+        countLabel.textContent = `(${allNodes.length} Connected Nodes)`;
       }
 
-      if (list.length === 0) {
-        container.innerHTML = `<div class="col-span-full text-center text-sm font-sans text-on-surface-variant py-12 bg-surface-container/40 rounded-xl border border-outline-variant/20">
-          ${currentCaseData ? 'No evidence items found under this category in the current case.' : 'Load a forensic case image to populate the evidence intelligence summary.'}
+      if (allNodes.length === 0) {
+        nodeContainer.innerHTML = `<div class="absolute inset-0 flex items-center justify-center text-sm font-sans text-on-surface-variant">
+          No graph entities loaded. Run analysis to generate evidence network diagram.
         </div>`;
         return;
       }
 
-      list.forEach(node => {
-        const card = document.createElement('div');
-        card.className = 'p-5 bg-surface-container-low/90 rounded-xl border border-outline-variant/30 hover:border-outline-variant/60 text-left space-y-3 shadow-md transition-all hover:shadow-lg group flex flex-col justify-between';
+      // Predefined visual diagram positions for clean network graph layout
+      const positions = [
+        { left: '20%', top: '22%' }, // 1. File (_REDS.ENV)
+        { left: '50%', top: '15%' }, // 2. Credential (Postgres URI)
+        { left: '80%', top: '22%' }, // 3. Credential (AWS Key)
+        { left: '18%', top: '55%' }, // 4. File (_ECRYPT.TXT)
+        { left: '18%', top: '84%' }, // 5. Financial (Ransom Wallet)
+        { left: '50%', top: '85%' }, // 6. File (_UTHLOG.TXT)
+        { left: '82%', top: '84%' }, // 7. Network (IP 198.51.100.23)
+        { left: '82%', top: '55%' }, // 8. File (_INANCE.PDF)
+        { left: '50%', top: '50%' }  // 9. Extra
+      ];
 
-        card.onmouseenter = () => {
-          const info = document.getElementById('graph-hover-title');
-          if (info) info.textContent = `Source: ${node.sourceFile} — ${node.relationship} (${node.recoverabilityStatus})`;
-        };
-        card.onmouseleave = () => {
-          const info = document.getElementById('graph-hover-title');
-          if (info) info.textContent = 'Select or hover over any item to review source artifact verification and relationship vectors.';
-        };
+      // Render Central Hub Node (Disk Container)
+      const centerNode = document.createElement('div');
+      centerNode.className = 'absolute -translate-x-1/2 -translate-y-1/2 px-4 py-2.5 rounded-2xl bg-surface-container-high border-2 border-primary/60 text-on-surface font-sans text-xs font-bold flex items-center gap-2.5 shadow-[0_0_20px_rgba(0,229,255,0.2)] z-20 cursor-default';
+      centerNode.style.left = '50%';
+      centerNode.style.top = '48%';
+      centerNode.innerHTML = `
+        <span class="material-symbols-outlined text-primary text-[22px]">database</span>
+        <div class="text-left">
+          <div class="text-on-surface font-bold text-xs">${escHtml(activeCaseId || 'CASE-9DC711A6')}</div>
+          <div class="text-[10px] text-on-surface-variant font-normal">Evidence Image Container</div>
+        </div>
+      `;
+      nodeContainer.appendChild(centerNode);
 
-        let sevBadgeClass = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-        if (node.severity === 'CRITICAL') {
-          sevBadgeClass = 'bg-red-500/15 text-red-400 border-red-500/30';
-        } else if (node.severity === 'HIGH') {
-          sevBadgeClass = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+      // Category color mappings
+      const catColors = {
+        'FILES': { bg: 'bg-surface-container-high/90', border: 'border-blue-500/40', text: 'text-blue-400', dot: 'bg-blue-400' },
+        'CREDENTIALS': { bg: 'bg-surface-container-high/90', border: 'border-red-500/40', text: 'text-red-400', dot: 'bg-red-400' },
+        'FINANCIAL': { bg: 'bg-surface-container-high/90', border: 'border-amber-500/40', text: 'text-amber-400', dot: 'bg-amber-400' },
+        'NETWORK': { bg: 'bg-surface-container-high/90', border: 'border-purple-500/40', text: 'text-purple-400', dot: 'bg-purple-400' }
+      };
+
+      const svgLines = [];
+
+      allNodes.forEach((node, idx) => {
+        const pos = positions[idx % positions.length];
+        const isMatch = filterType === 'ALL' || node.type === filterType;
+
+        const colors = catColors[node.type] || catColors['FILES'];
+        const isSelected = activeSelectedNodeId ? node.id === activeSelectedNodeId : idx === 0;
+
+        if (idx === 0 && !activeSelectedNodeId) {
+          activeSelectedNodeId = node.id;
         }
 
-        const maxLen = 38;
-        const rawVal = node.rawValue || '';
-        const isLong = rawVal.length > maxLen;
-        const truncatedVal = isLong ? rawVal.substring(0, maxLen) + '...' : rawVal;
+        const opacityClass = isMatch ? 'opacity-100' : 'opacity-30 pointer-events-none';
+        const selectedClass = isSelected ? 'border-primary shadow-[0_0_20px_rgba(0,229,255,0.4)] scale-105 bg-surface-container-highest' : `${colors.border}`;
 
-        card.innerHTML = `
-          <div class="space-y-2.5">
-            <!-- Header Row: Icon, Category Name, Severity -->
-            <div class="flex items-center justify-between gap-2">
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-on-surface-variant text-[20px]">${escHtml(node.icon)}</span>
-                <span class="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">${escHtml(node.categoryLabel)}</span>
-              </div>
-              <span class="px-2.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${sevBadgeClass}">${escHtml(node.severity)}</span>
-            </div>
+        const chip = document.createElement('div');
+        chip.className = `graph-node-chip absolute -translate-x-1/2 -translate-y-1/2 px-3 py-2 rounded-xl bg-surface-container-high/90 border font-sans text-xs flex items-center gap-2 cursor-pointer transition-all shadow-md group z-10 ${selectedClass} ${opacityClass}`;
+        chip.style.left = pos.left;
+        chip.style.top = pos.top;
+        chip.setAttribute('data-node-id', node.id);
+        chip.onclick = () => selectGraphNode(node.id);
 
-            <!-- 1-Sentence Plain English Description Headline -->
-            <h4 class="text-sm font-semibold text-on-surface leading-snug font-sans">${escHtml(node.headline)}</h4>
+        const shortTitle = node.rawValue.length > 22 ? node.rawValue.substring(0, 20) + '...' : node.rawValue;
 
-            <!-- Technical Raw Value Box (Second, Monospace, Truncated) -->
-            <div class="bg-surface-container-highest/60 rounded-lg p-3 border border-outline-variant/20 space-y-1">
-              <div class="text-[10px] uppercase font-semibold tracking-wider text-on-surface-variant/80 font-sans">Raw Technical String</div>
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <code class="text-xs font-mono text-on-surface break-all">${escHtml(truncatedVal)}</code>
-                ${isLong ? `
-                  <button type="button" class="text-[11px] font-medium text-primary hover:underline whitespace-nowrap self-start sm:self-auto font-sans" data-state="truncated" onclick="event.stopPropagation(); toggleRevealValue(this, '${escJsString(rawVal)}', '${escJsString(truncatedVal)}')">Reveal Full Value</button>
-                ` : ''}
-              </div>
-            </div>
-          </div>
-
-          <div class="space-y-2 pt-2 border-t border-outline-variant/20">
-            <!-- Evidence Source & Recovery Status -->
-            <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-on-surface-variant">
-              <div class="flex items-center gap-1.5 font-sans">
-                <span class="material-symbols-outlined text-[15px]">description</span>
-                <span>Source: <strong class="text-on-surface font-mono font-normal">${escHtml(node.sourceFile)}</strong></span>
-              </div>
-              <div class="flex items-center gap-1 text-emerald-400 font-sans">
-                <span class="material-symbols-outlined text-[15px]">verified</span>
-                <span>${escHtml(node.recoverabilityStatus)}</span>
-              </div>
-            </div>
-
-            <!-- Relationship Badge -->
-            <div class="text-xs text-on-surface-variant/90 bg-surface-container-high/40 px-3 py-1.5 rounded-md border border-outline-variant/20 flex items-center gap-2 font-sans">
-              <span class="material-symbols-outlined text-on-surface-variant text-[16px]">subdirectory_arrow_right</span>
-              <span>Relationship: <strong class="text-on-surface font-normal">${escHtml(node.relationship)}</strong></span>
-            </div>
-          </div>
+        chip.innerHTML = `
+          <span class="material-symbols-outlined text-[18px] ${colors.text}">${escHtml(node.icon)}</span>
+          <span class="font-semibold text-on-surface whitespace-nowrap">${escHtml(shortTitle)}</span>
+          <span class="w-2 h-2 rounded-full ${colors.dot}"></span>
         `;
-        container.appendChild(card);
+        nodeContainer.appendChild(chip);
+
+        // Draw SVG Connection Line to Central Hub
+        const x1 = parseFloat(pos.left);
+        const y1 = parseFloat(pos.top);
+
+        svgLines.push(`
+          <line x1="${x1}%" y1="${y1}%" x2="50%" y2="48%" stroke="rgba(255,255,255,0.12)" stroke-width="1.5" stroke-dasharray="4" />
+        `);
       });
+
+      svgContainer.innerHTML = svgLines.join('');
+
+      // Auto-select initial active node for side drawer
+      if (activeSelectedNodeId) {
+        selectGraphNode(activeSelectedNodeId);
+      }
     }
 
     let currentTimelineEvents = [];
