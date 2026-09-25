@@ -213,13 +213,15 @@ with st.sidebar:
     st.markdown("#### 2 · Evidence source")
     ingest_mode = st.radio(
         "Evidence source",
-        ["Disk image (.raw / .dd / .img)", "Loose evidence files", "Synthetic test disk"],
+        ["Disk image (.raw / .dd / .img / .bin)", "Loose evidence files", "Synthetic test disk"],
         label_visibility="collapsed",
+        help="Choose physical disk image/memory dump, loose files, or synthetic benchmark disk."
     )
 
     target_path = None
     if ingest_mode.startswith("Disk image"):
-        up = st.file_uploader("Disk image", type=["raw", "dd", "img"], label_visibility="collapsed")
+        up = st.file_uploader("Disk image", type=["raw", "dd", "img", "bin", "mem", "dmp"], label_visibility="collapsed",
+                              help="Bitstream image from seized drive, flash memory or unallocated sectors.")
         if up is not None:
             target_path = save_upload(up, UPLOAD_DIR)
     elif ingest_mode.startswith("Loose"):
